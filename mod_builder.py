@@ -171,35 +171,39 @@ class ModBuilderGUI(tk.Tk):
         unpack_frame.pack(fill=tk.X, pady=5)
 
         ttk.Label(unpack_frame, text="ACB File:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
-        ttk.Entry(unpack_frame, textvariable=self.acb_file, state='readonly').grid(row=0, column=1, columnspan=3, sticky=tk.EW, padx=5)
+        ttk.Entry(unpack_frame, textvariable=self.acb_file, state='readonly').grid(row=0, column=1, columnspan=2, sticky=tk.EW, padx=5)
         
-        ttk.Button(unpack_frame, text="Select Common BGM...", command=self.select_common_bgm).grid(row=1, column=1, sticky=tk.W, padx=5, pady=5)
-        ttk.Button(unpack_frame, text="Browse Manually...", command=self.select_acb_manual).grid(row=1, column=2, sticky=tk.W, padx=5, pady=5)
+        ttk.Button(unpack_frame, text="Select BGM...", command=self.select_common_bgm).grid(row=1, column=1, sticky=tk.W, padx=5, pady=5)
         self.unpack_button = ttk.Button(unpack_frame, text="Unpack", command=self.unpack_acb, state=tk.DISABLED)
-        self.unpack_button.grid(row=1, column=3, sticky=tk.E, padx=5, pady=5)
+        self.unpack_button.grid(row=1, column=2, sticky=tk.E, padx=5, pady=5)
         unpack_frame.columnconfigure(1, weight=1)
 
         # --- Step 2: Convert ---
         convert_outer_frame = ttk.LabelFrame(parent, text="Step 2: Convert Audio", padding="10")
         convert_outer_frame.pack(fill=tk.BOTH, expand=True, pady=5)
 
+        # Add a placeholder label
+        self.unpack_first_label = ttk.Label(convert_outer_frame, text="Please select and unpack an ACB file in Step 1 to see conversion options.", justify=tk.CENTER)
+        self.unpack_first_label.pack(expand=True)
+
         # Create a canvas and a scrollbar for the scrollable area
-        canvas = tk.Canvas(convert_outer_frame, highlightthickness=0)
-        scrollbar = ttk.Scrollbar(convert_outer_frame, orient="vertical", command=canvas.yview)
-        scrollable_frame = ttk.Frame(canvas)
+        self.canvas = tk.Canvas(convert_outer_frame, highlightthickness=0)
+        self.scrollbar = ttk.Scrollbar(convert_outer_frame, orient="vertical", command=self.canvas.yview)
+        scrollable_frame = ttk.Frame(self.canvas)
 
         scrollable_frame.bind(
             "<Configure>",
-            lambda e: canvas.configure(
-                scrollregion=canvas.bbox("all")
+            lambda e: self.canvas.configure(
+                scrollregion=self.canvas.bbox("all")
             )
         )
 
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
+        self.canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
 
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
+        # Widgets are created but not packed yet. They will be shown after unpacking.
+        # self.canvas.pack(side="left", fill="both", expand=True)
+        # self.scrollbar.pack(side="right", fill="y")
 
         # --- Mouse Wheel Scrolling ---
         def _on_mousewheel(event):
@@ -213,11 +217,11 @@ class ModBuilderGUI(tk.Tk):
                     delta = -1
                 else:
                     delta = 1
-            canvas.yview_scroll(delta, "units")
+            self.canvas.yview_scroll(delta, "units")
 
-        canvas.bind_all("<MouseWheel>", _on_mousewheel) # Windows/macOS
-        canvas.bind_all("<Button-4>", _on_mousewheel)   # Linux scroll up
-        canvas.bind_all("<Button-5>", _on_mousewheel)   # Linux scroll down
+        self.canvas.bind_all("<MouseWheel>", _on_mousewheel) # Windows/macOS
+        self.canvas.bind_all("<Button-4>", _on_mousewheel)   # Linux scroll up
+        self.canvas.bind_all("<Button-5>", _on_mousewheel)   # Linux scroll down
 
         # Create track selection widgets
         self.stage_music_frame = ttk.Frame(scrollable_frame)
@@ -244,7 +248,7 @@ class ModBuilderGUI(tk.Tk):
 
         # Convert button is outside the scrollable area
         self.convert_button = ttk.Button(convert_outer_frame, text="Convert Selected Audio", command=self.convert_audio, state=tk.DISABLED)
-        self.convert_button.pack(pady=10)
+        # self.convert_button.pack(pady=10) # Packed later
 
         # --- Step 3: Repack (formerly Step 4) ---
         repack_frame = ttk.LabelFrame(parent, text="Step 3: Repack & Create Mod", padding="10")
@@ -423,6 +427,13 @@ class ModBuilderGUI(tk.Tk):
         self.lap1_wav_path.set('')
         self.final_lap_wav_path.set('')
         self.intro_loops_var.set(False); self.lap1_loops_var.set(False); self.final_lap_loops_var.set(False)
+
+        # Hide conversion options and show the placeholder text
+        self.canvas.pack_forget()
+        self.scrollbar.pack_forget()
+        self.convert_button.pack_forget()
+        self.unpack_first_label.pack(expand=True)
+
         self._toggle_loop_widgets(self.intro_widgets, self.intro_loops_var)
         self._toggle_loop_widgets(self.lap1_widgets, self.lap1_loops_var)
         self._toggle_loop_widgets(self.final_lap_widgets, self.final_lap_loops_var)
@@ -465,6 +476,12 @@ class ModBuilderGUI(tk.Tk):
             self.reset_ui_state()
             return
         
+        # Show the conversion options now that unpacking is done
+        self.unpack_first_label.pack_forget()
+        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.convert_button.pack(pady=10)
+
         messagebox.showinfo("Success", f"Unpacked to '{unpacked_path.name}'")
         self.convert_button.config(state=tk.NORMAL)
         self.repack_button.config(state=tk.NORMAL)
