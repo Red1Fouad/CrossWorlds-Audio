@@ -100,7 +100,7 @@ class ThreadedTask(threading.Thread):
 class ModBuilderGUI(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("Game Audio Mod Builder")
+        self.title("CrossWorlds Music Mod Builder")
         self.geometry("800x750")
 
         # --- State Variables ---
@@ -192,8 +192,10 @@ class ModBuilderGUI(tk.Tk):
         ttk.Label(repack_frame, text="Mod Name:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
         ttk.Entry(repack_frame, textvariable=self.mod_name).grid(row=1, column=1, sticky=tk.EW, padx=5)
         self.pak_button = ttk.Button(repack_frame, text="Create .pak", command=self.create_pak, state=tk.DISABLED)
-        self.pak_button.grid(row=1, column=2, padx=5)
+        self.pak_button.grid(row=1, column=2, padx=(5,0))
 
+        self.show_pak_button = ttk.Button(repack_frame, text="Show Pak Output", command=self.show_pak_output)
+        self.show_pak_button.grid(row=1, column=3, padx=(5,5))
     def _create_track_selector(self, parent, label_text, path_var, command, loop_var, loop_start_var, loop_end_var):
         """Helper to create a file selection and loop point widget group."""
         frame = ttk.Frame(parent)
@@ -209,7 +211,7 @@ class ModBuilderGUI(tk.Tk):
         loop_frame.columnconfigure(1, weight=1)
         loop_frame.columnconfigure(3, weight=1)
 
-        ttk.Checkbutton(loop_frame, text="Add Loop Points", variable=loop_var, command=lambda: self._toggle_loop_widgets(loop_frame, loop_var)).grid(row=0, column=0, columnspan=4, sticky=tk.W)
+        ttk.Checkbutton(loop_frame, text="Add Loop Points (samples)", variable=loop_var, command=lambda: self._toggle_loop_widgets(loop_frame, loop_var)).grid(row=0, column=0, columnspan=4, sticky=tk.W)
         ttk.Label(loop_frame, text="Start:").grid(row=1, column=0, sticky=tk.W, padx=(15, 0))
         ttk.Entry(loop_frame, textvariable=loop_start_var).grid(row=1, column=1, sticky=tk.EW, padx=5)
         ttk.Label(loop_frame, text="End:").grid(row=1, column=2, sticky=tk.W)
@@ -610,6 +612,18 @@ class ModBuilderGUI(tk.Tk):
         messagebox.showinfo("Mod Creation Complete!", f"Successfully created mod package:\n{pak_file.resolve()}")
         self.reset_ui_state()
 
+    def show_pak_output(self):
+        """Opens the script's directory where the .pak file is created."""
+        output_dir = Path.cwd()
+        try:
+            if sys.platform == "win32":
+                os.startfile(output_dir)
+            elif sys.platform == "darwin": # macOS
+                subprocess.run(["open", output_dir], check=True)
+            else: # Linux
+                subprocess.run(["xdg-open", output_dir], check=True)
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not open output directory:\n{e}")
 if __name__ == "__main__":
     app = ModBuilderGUI()
     app.mainloop()
