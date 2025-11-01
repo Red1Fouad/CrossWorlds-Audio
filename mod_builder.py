@@ -16,6 +16,9 @@ except ImportError:
 
 # --- Data for BGM Selector ---
 BGM_DATA = {
+    "Menu & System": {
+        "BGM": "Menu & System Tracks",
+    },
     "Track Themes": {
         # Ordered based on user request
         "1016": "E-Stadium", "1017": "Rainbow Garden", "1018": "Water Palace",
@@ -36,6 +39,21 @@ BGM_DATA = {
     }
 }
 
+MENU_BGM_TRACKS = {
+    # Label: (target .hca filename)
+    "Title 1": "00054_streaming",
+    "Title 2": "00055_streaming",
+    "Race Park": "00041_streaming",
+    "Garage": "00029_streaming",
+    "Character Select": "00056_streaming",
+    "Time Trial": "00052_streaming",
+    "Friendship": "00028_streaming",
+    "Lobby (World Match)": "00036_streaming",
+    "Lobby (Friend Match)": "00038_streaming",
+    "Lobby (Festival)": "00037_streaming",
+    "CrossWorld Time Trial Intro": "00053_streaming",
+    "Monster Truck": "00040_streaming",
+}
 class BGMSelectorWindow(tk.Toplevel):
     def __init__(self, parent):
         super().__init__(parent)
@@ -50,16 +68,12 @@ class BGMSelectorWindow(tk.Toplevel):
         tree.heading("filename", text="Filename")
         tree.pack(fill="both", expand=True, padx=10, pady=10)
 
-        track_node = tree.insert("", "end", text="Track Themes", open=True)
-        for id_num, name in BGM_DATA["Track Themes"].items():
-            filename = f"BGM_STG{id_num}.acb"
-            tree.insert(track_node, "end", text=f"{id_num}: {name}", values=(filename,))
-
-        crossworlds_node = tree.insert("", "end", text="Crossworlds", open=True)
-        for id_num, name in BGM_DATA["Crossworlds"].items():
-            filename = f"BGM_STG{id_num}.acb"
-            tree.insert(crossworlds_node, "end", text=f"{id_num}: {name}", values=(filename,))
-
+        for category, tracks in BGM_DATA.items():
+            category_node = tree.insert("", "end", text=category, open=True)
+            for id_num, name in tracks.items():
+                filename = f"BGM_STG{id_num}.acb" if category != "Menu & System" else "BGM.acb"
+                display_text = f"{id_num}: {name}" if category != "Menu & System" else name
+                tree.insert(category_node, "end", text=display_text, values=(filename,))
         def on_select():
             selected_item = tree.focus()
             if selected_item and tree.parent(selected_item): # Ensure a child item is selected
@@ -131,6 +145,10 @@ class ModBuilderGUI(tk.Tk):
         self.final_lap_loop_start_var = tk.StringVar()
         self.final_lap_loop_end_var = tk.StringVar()
         
+        self.status_var = tk.StringVar(value="Ready.")
+        # --- New state vars for menu music ---
+        self.menu_track_vars = {}
+
         self.replacement_map = {}
 
         # --- Main Layout ---
@@ -142,6 +160,10 @@ class ModBuilderGUI(tk.Tk):
 
         # --- Check for tools on startup ---
         self.check_tools()
+
+        # --- Status Bar ---
+        status_bar = ttk.Label(self, textvariable=self.status_var, anchor=tk.W, relief=tk.SUNKEN, padding="2 5")
+        status_bar.pack(side=tk.BOTTOM, fill=tk.X)
 
     def _create_widgets(self, parent):
         # --- Step 1: Unpack ---
@@ -158,32 +180,75 @@ class ModBuilderGUI(tk.Tk):
         unpack_frame.columnconfigure(1, weight=1)
 
         # --- Step 2: Convert ---
-        convert_frame = ttk.LabelFrame(parent, text="Step 2: Convert Audio", padding="10")
-        convert_frame.pack(fill=tk.X, pady=5)
+        convert_outer_frame = ttk.LabelFrame(parent, text="Step 2: Convert Audio", padding="10")
+        convert_outer_frame.pack(fill=tk.BOTH, expand=True, pady=5)
+
+        # Create a canvas and a scrollbar for the scrollable area
+        canvas = tk.Canvas(convert_outer_frame, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(convert_outer_frame, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(
+                scrollregion=canvas.bbox("all")
+            )
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        # --- Mouse Wheel Scrolling ---
+        def _on_mousewheel(event):
+            # Determine scroll direction and magnitude
+            if sys.platform == "win32":
+                delta = -1 * (event.delta // 120)
+            elif sys.platform == "darwin": # macOS
+                delta = event.delta
+            else: # Linux
+                if event.num == 4:
+                    delta = -1
+                else:
+                    delta = 1
+            canvas.yview_scroll(delta, "units")
+
+        canvas.bind_all("<MouseWheel>", _on_mousewheel) # Windows/macOS
+        canvas.bind_all("<Button-4>", _on_mousewheel)   # Linux scroll up
+        canvas.bind_all("<Button-5>", _on_mousewheel)   # Linux scroll down
 
         # Create track selection widgets
-        self.intro_frame, self.intro_widgets = self._create_track_selector(convert_frame, "Intro Music", self.intro_wav_path, self.select_intro_wav, self.intro_loops_var, self.intro_loop_start_var, self.intro_loop_end_var)
-        ttk.Separator(convert_frame, orient='horizontal').pack(fill='x', pady=10)
-        self.lap1_frame, self.lap1_widgets = self._create_track_selector(convert_frame, "Lap 1 Music", self.lap1_wav_path, self.select_lap1_wav, self.lap1_loops_var, self.lap1_loop_start_var, self.lap1_loop_end_var)
-        ttk.Separator(convert_frame, orient='horizontal').pack(fill='x', pady=10)
-        self.final_lap_frame, self.final_lap_widgets = self._create_track_selector(convert_frame, "Final Lap Music", self.final_lap_wav_path, self.select_final_lap_wav, self.final_lap_loops_var, self.final_lap_loop_start_var, self.final_lap_loop_end_var)
+        self.stage_music_frame = ttk.Frame(scrollable_frame)
+        self.stage_music_frame.pack(fill=tk.X)
 
-        ttk.Separator(convert_frame, orient='horizontal').pack(fill='x', pady=10)
-        self.convert_button = ttk.Button(convert_frame, text="Convert Selected Audio", command=self.convert_audio, state=tk.DISABLED)
+        self.intro_frame, self.intro_widgets = self._create_track_selector(self.stage_music_frame, "Intro Music", self.intro_wav_path, self.select_intro_wav, self.intro_loops_var, self.intro_loop_start_var, self.intro_loop_end_var)
+        ttk.Separator(self.stage_music_frame, orient='horizontal').pack(fill='x', pady=10)
+        self.lap1_frame, self.lap1_widgets = self._create_track_selector(self.stage_music_frame, "Lap 1 Music", self.lap1_wav_path, self.select_lap1_wav, self.lap1_loops_var, self.lap1_loop_start_var, self.lap1_loop_end_var)
+        ttk.Separator(self.stage_music_frame, orient='horizontal').pack(fill='x', pady=10)
+        self.final_lap_frame, self.final_lap_widgets = self._create_track_selector(self.stage_music_frame, "Final Lap Music", self.final_lap_wav_path, self.select_final_lap_wav, self.final_lap_loops_var, self.final_lap_loop_start_var, self.final_lap_loop_end_var)
+
+        # --- New Menu Music Frame ---
+        self.menu_music_frame = ttk.Frame(scrollable_frame)
+        # Don't pack it yet, will be managed in set_acb_file
+
+        for label, hca_name in MENU_BGM_TRACKS.items():
+            path_var = tk.StringVar()
+            loop_var = tk.BooleanVar()
+            start_var = tk.StringVar()
+            end_var = tk.StringVar()
+            self.menu_track_vars[hca_name] = {'path': path_var, 'loop': loop_var, 'start': start_var, 'end': end_var}
+            frame, _ = self._create_track_selector(self.menu_music_frame, label, path_var, lambda p=path_var: self._select_wav_file(p), loop_var, start_var, end_var)
+            ttk.Separator(self.menu_music_frame, orient='horizontal').pack(fill='x', pady=5, after=frame)
+
+        # Convert button is outside the scrollable area
+        self.convert_button = ttk.Button(convert_outer_frame, text="Convert Selected Audio", command=self.convert_audio, state=tk.DISABLED)
         self.convert_button.pack(pady=10)
 
-        # --- Step 3: Replace Files ---
-        replace_frame = ttk.LabelFrame(parent, text="Step 3: Replace Game Files", padding="10")
-        replace_frame.pack(fill=tk.BOTH, expand=True, pady=5)
-        
-        step3_info_frame = ttk.Frame(replace_frame)
-        step3_info_frame.pack(expand=True)
-        ttk.Label(step3_info_frame, text="This step is now automatic.", font=("", 10, "italic")).pack(pady=5)
-        ttk.Label(step3_info_frame, text="The 'Repack ACB' button will apply the converted tracks.").pack()
-
-        # --- Step 4: Repack ---
-        repack_frame = ttk.LabelFrame(parent, text="Step 4: Repack & Create Mod", padding="10")
-        repack_frame.pack(fill=tk.X, pady=5)
+        # --- Step 3: Repack (formerly Step 4) ---
+        repack_frame = ttk.LabelFrame(parent, text="Step 3: Repack & Create Mod", padding="10")
+        repack_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=5)
         repack_frame.columnconfigure(1, weight=1)
 
         self.repack_button = ttk.Button(repack_frame, text="Repack ACB", command=self.repack_acb, state=tk.DISABLED)
@@ -238,6 +303,17 @@ class ModBuilderGUI(tk.Tk):
         self.intro_loops_var.set(False); self._toggle_loop_widgets(self.intro_widgets, self.intro_loops_var)
         self.lap1_loops_var.set(False); self._toggle_loop_widgets(self.lap1_widgets, self.lap1_loops_var)
         self.final_lap_loops_var.set(False); self._toggle_loop_widgets(self.final_lap_widgets, self.final_lap_loops_var)
+        
+        # This is tricky. The widgets are already created. We need to find them again to disable them.
+        # We'll rely on the order they were created in the menu_music_frame.
+        # The children are [frame, separator, frame, separator, ...]. We want the frames.
+        menu_frames = [child for child in self.menu_music_frame.winfo_children() if isinstance(child, ttk.Frame)]
+        for hca_name, var_dict in self.menu_track_vars.items():
+            # Find the corresponding loop_frame inside the main frame for this track
+            # This is fragile, but it's the simplest way without a big refactor.
+            loop_frame = [child for child in menu_frames.pop(0).winfo_children() if isinstance(child, ttk.Frame)][0]
+            var_dict['loop'].set(False)
+            self._toggle_loop_widgets(loop_frame, var_dict['loop'])
 
 
     def run_command_threaded(self, target_func, on_complete, args=(), kwargs=None):
@@ -280,6 +356,7 @@ class ModBuilderGUI(tk.Tk):
         try:
             msg_type, message = self.queue.get_nowait()
             if msg_type == 'error':
+                self.status_var.set(f"Error! Check console for details.")
                 messagebox.showerror("Execution Error", str(message))
                 self.reset_ui_state()
             elif msg_type == 'success':
@@ -289,6 +366,7 @@ class ModBuilderGUI(tk.Tk):
 
     def reset_ui_state(self):
         """Resets buttons to an interactive state after an operation."""
+        self.status_var.set("Ready.")
         self.unpack_button.config(state=tk.NORMAL if self.acb_file.get() else tk.DISABLED)
         self.convert_button.config(state=tk.NORMAL if self.unpacked_folder.get() else tk.DISABLED)
         self.repack_button.config(state=tk.NORMAL if self.unpacked_folder.get() else tk.DISABLED)
@@ -348,26 +426,39 @@ class ModBuilderGUI(tk.Tk):
         self._toggle_loop_widgets(self.intro_widgets, self.intro_loops_var)
         self._toggle_loop_widgets(self.lap1_widgets, self.lap1_loops_var)
         self._toggle_loop_widgets(self.final_lap_widgets, self.final_lap_loops_var)
+        for var_dict in self.menu_track_vars.values():
+            var_dict['path'].set('')
+            var_dict['loop'].set(False)
+            # Loop widgets are toggled off during check_tools init
+
         self.repack_button.config(state=tk.DISABLED)
         self.pak_button.config(state=tk.DISABLED)
 
-        # Show/hide intro widgets based on filename
+        # Show/hide widgets based on filename
         acb_path = Path(filepath)
-        if acb_path.stem.startswith("BGM_STG2"):
-            self.intro_frame.pack_forget()
+        if acb_path.stem == "BGM":
+            self.stage_music_frame.pack_forget()
+            self.menu_music_frame.pack(fill=tk.X)
         else:
-            self.intro_frame.pack(fill=tk.X, padx=5, pady=5)
+            self.menu_music_frame.pack_forget()
+            self.stage_music_frame.pack(fill=tk.X)
+            if acb_path.stem.startswith("BGM_STG2"):
+                self.intro_frame.pack_forget()
+            else:
+                self.intro_frame.pack(fill=tk.X, padx=5, pady=5)
 
     def unpack_acb(self):
         acb_path = Path(self.acb_file.get())
         unpacked_path = acb_path.parent / acb_path.stem
         self.unpacked_folder.set(str(unpacked_path))
         print(f"--- Step 1: Unpacking '{acb_path.name}' ---")
+        self.status_var.set(f"Unpacking '{acb_path.name}'...")
         self.unpack_button.config(state=tk.DISABLED)
         self.run_command_threaded(self._execute_command, self.on_unpack_complete, args=([str(ACB_EDITOR), str(acb_path)], False), kwargs={'cwd': None})
 
     def on_unpack_complete(self, result):
         print("Unpacking complete.")
+        self.status_var.set("Unpacking complete. Ready for audio conversion.")
         unpacked_path = Path(self.unpacked_folder.get())
         if not unpacked_path.exists():
             messagebox.showerror("Error", f"Failed to unpack. Folder '{unpacked_path.name}' was not created.")
@@ -385,6 +476,7 @@ class ModBuilderGUI(tk.Tk):
         acb_path = Path(self.acb_file.get())
         acb_name = acb_path.stem
         print(f"\n--- Step 2: Starting Conversion for '{acb_name}' ---")
+        self.status_var.set(f"Preparing to convert audio for '{acb_name}'...")
         
         if OUTPUT_DIR.exists():
             import shutil
@@ -414,12 +506,24 @@ class ModBuilderGUI(tk.Tk):
 
         # --- Prepare list of conversions to run ---
         tasks = []
-        if self.intro_wav_path.get():
-            tasks.append(("intro", self.intro_wav_path, self.intro_loops_var, self.intro_loop_start_var, self.intro_loop_end_var))
-        if self.lap1_wav_path.get():
-            tasks.append(("lap1", self.lap1_wav_path, self.lap1_loops_var, self.lap1_loop_start_var, self.lap1_loop_end_var))
-        if self.final_lap_wav_path.get():
-            tasks.append(("final_lap", self.final_lap_wav_path, self.final_lap_loops_var, self.final_lap_loop_start_var, self.final_lap_loop_end_var))
+        is_menu_bgm = acb_path.stem == "BGM"
+
+        if is_menu_bgm:
+            for hca_name, var_dict in self.menu_track_vars.items():
+                if var_dict['path'].get():
+                    tasks.append((hca_name, var_dict['path'], var_dict['loop'], var_dict['start'], var_dict['end']))
+        else:
+            if self.intro_wav_path.get():
+                tasks.append(("intro", self.intro_wav_path, self.intro_loops_var, self.intro_loop_start_var, self.intro_loop_end_var))
+            if self.lap1_wav_path.get():
+                tasks.append(("lap1", self.lap1_wav_path, self.lap1_loops_var, self.lap1_loop_start_var, self.lap1_loop_end_var))
+            if self.final_lap_wav_path.get():
+                tasks.append(("final_lap", self.final_lap_wav_path, self.final_lap_loops_var, self.final_lap_loop_start_var, self.final_lap_loop_end_var))
+        
+        print("The following files will be converted:")
+        for name, path_var, _, _, _ in tasks:
+            wav_path = Path(path_var.get())
+            print(f"  - Source: '{wav_path.name}' -> Target: {name}.hca")
 
         if not tasks:
             messagebox.showinfo("Nothing to Convert", "No WAV files were selected for conversion.")
@@ -427,6 +531,7 @@ class ModBuilderGUI(tk.Tk):
 
         # --- Run conversions in a thread ---
         self.convert_button.config(state=tk.DISABLED)
+        self.status_var.set("Converting audio files... this may take a moment.")
         self.run_command_threaded(self._run_conversion_tasks, self.on_convert_complete, args=(tasks, command_line, str(TOOLS_DIR)))
 
     def _run_conversion_tasks(self, tasks, base_command_line, cwd):
@@ -469,7 +574,7 @@ class ModBuilderGUI(tk.Tk):
             # 5. Move the result from temp output to the main output folder
             converted_files = list(temp_output_dir.glob('*'))
             if converted_files:
-                shutil.move(converted_files[0], OUTPUT_DIR / f"{name}.hca")
+                shutil.move(str(converted_files[0]), str(OUTPUT_DIR / f"{name}.hca"))
 
         # 6. Clean up temp directories
         if temp_input_dir.exists(): shutil.rmtree(temp_input_dir)
@@ -477,6 +582,7 @@ class ModBuilderGUI(tk.Tk):
 
     def on_convert_complete(self, result):
         print("All conversions complete.")
+        self.status_var.set("Audio conversion complete. Ready to repack.")
         messagebox.showinfo("Success", "Audio conversion complete!")
         self.reset_ui_state()
 
@@ -486,7 +592,7 @@ class ModBuilderGUI(tk.Tk):
         unpacked_path = Path(self.unpacked_folder.get())
         try:
             self.original_files = sorted([f.name for f in unpacked_path.iterdir() if f.suffix.lower() in ['.hca', '.adx']])
-            if len(self.original_files) < 5:
+            if Path(self.acb_file.get()).stem != "BGM" and len(self.original_files) < 5:
                 messagebox.showwarning("Unexpected File Structure", 
                     f"Warning: Found {len(self.original_files)} audio files, but expected at least 5.\n\n"
                     "The automatic replacement for Intro/Lap1/Final Lap might not work correctly.")
@@ -533,25 +639,34 @@ class ModBuilderGUI(tk.Tk):
         return True
 
     def repack_acb(self):
-        print("\n--- Step 3: Applying Replacements ---")
+        print("\n--- Applying Replacements ---")
+        self.status_var.set("Applying replacement audio files...")
         unpacked_path = Path(self.unpacked_folder.get())
         self.replacement_map = {}
 
-        if len(self.original_files) < 5:
-            messagebox.showerror("Error", "Cannot apply replacements: Not enough original files found in the unpacked folder.")
-            return
-        
-        is_crossworlds = Path(self.acb_file.get()).stem.startswith("BGM_STG2")
+        acb_stem = Path(self.acb_file.get()).stem
+        is_menu_bgm = acb_stem == "BGM"
+        is_crossworlds = acb_stem.startswith("BGM_STG2")
 
         # Build the replacement map based on converted files
-        if (OUTPUT_DIR / "lap1.hca").exists():
-            self.replacement_map[self.original_files[0]] = "lap1.hca" # Lap 1
-            self.replacement_map[self.original_files[1]] = "lap1.hca" # Lap 1 intro
-        if (OUTPUT_DIR / "final_lap.hca").exists():
-            self.replacement_map[self.original_files[2]] = "final_lap.hca" # Final Lap
-            self.replacement_map[self.original_files[3]] = "final_lap.hca" # Final Lap intro
-        if not is_crossworlds and (OUTPUT_DIR / "intro.hca").exists():
-            self.replacement_map[self.original_files[4]] = "intro.hca" # Intro
+        if is_menu_bgm:
+            for hca_name, var_dict in self.menu_track_vars.items():
+                converted_file = OUTPUT_DIR / f"{hca_name}.hca"
+                if converted_file.exists():
+                    self.replacement_map[f"{hca_name}.hca"] = f"{hca_name}.hca"
+        else:
+            if len(self.original_files) < 5:
+                messagebox.showerror("Error", "Cannot apply replacements: Not enough original files found in the unpacked folder.")
+                return
+
+            if (OUTPUT_DIR / "lap1.hca").exists():
+                self.replacement_map[self.original_files[0]] = "lap1.hca" # Lap 1
+                self.replacement_map[self.original_files[1]] = "lap1.hca" # Lap 1 intro
+            if (OUTPUT_DIR / "final_lap.hca").exists():
+                self.replacement_map[self.original_files[2]] = "final_lap.hca" # Final Lap
+                self.replacement_map[self.original_files[3]] = "final_lap.hca" # Final Lap intro
+            if not is_crossworlds and (OUTPUT_DIR / "intro.hca").exists():
+                self.replacement_map[self.original_files[4]] = "intro.hca" # Intro
 
         if not self.replacement_map:
             messagebox.showinfo("No Changes", "No converted tracks found in 'output' folder. Nothing to apply.")
@@ -567,12 +682,14 @@ class ModBuilderGUI(tk.Tk):
         print("All replacements applied.")
         messagebox.showinfo("Success", f"{len(self.replacement_map)} file(s) replaced successfully in the unpacked folder.")
 
-        print("\n--- Step 4: Repacking ACB ---")
+        print("\n--- Step 3: Repacking ACB ---")
+        self.status_var.set(f"Repacking '{unpacked_path.name}'...")
         self.repack_button.config(state=tk.DISABLED)
         self.run_command_threaded(self._execute_command, self.on_repack_complete, args=([str(ACB_EDITOR), str(unpacked_path)], False), kwargs={'cwd': None})
 
     def on_repack_complete(self, result):
         print("Repacking complete.")
+        self.status_var.set("ACB repacked successfully. Ready to create .pak file.")
         messagebox.showinfo("Success", "ACB folder has been repacked!")
         self.reset_ui_state()
 
@@ -582,7 +699,8 @@ class ModBuilderGUI(tk.Tk):
             messagebox.showerror("Error", "Mod Name cannot be empty.")
             return
 
-        print(f"\n--- Step 5: Creating Mod Pak '{mod_name_str}.pak' ---")
+        print(f"\n--- Step 4: Creating Mod Pak '{mod_name_str}.pak' ---")
+        self.status_var.set(f"Creating mod package '{mod_name_str}.pak'...")
         mod_root_folder = Path(mod_name_str)
         criware_folder = mod_root_folder / "UNION" / "Content" / "CriWareData"
 
@@ -608,6 +726,7 @@ class ModBuilderGUI(tk.Tk):
     def on_pak_complete(self, result):
         mod_name_str = self.mod_name.get().strip()
         print(f"Pak file creation complete.")
+        self.status_var.set(f"Mod '{mod_name_str}.pak' created successfully!")
         pak_file = Path(mod_name_str).with_suffix('.pak')
         messagebox.showinfo("Mod Creation Complete!", f"Successfully created mod package:\n{pak_file.resolve()}")
         self.reset_ui_state()
