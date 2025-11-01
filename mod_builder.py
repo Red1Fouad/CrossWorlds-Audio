@@ -162,11 +162,11 @@ class ModBuilderGUI(tk.Tk):
         convert_frame.pack(fill=tk.X, pady=5)
 
         # Create track selection widgets
-        self.intro_widgets = self._create_track_selector(convert_frame, "Intro Music", self.intro_wav_path, self.select_intro_wav, self.intro_loops_var, self.intro_loop_start_var, self.intro_loop_end_var)
+        self.intro_frame, self.intro_widgets = self._create_track_selector(convert_frame, "Intro Music", self.intro_wav_path, self.select_intro_wav, self.intro_loops_var, self.intro_loop_start_var, self.intro_loop_end_var)
         ttk.Separator(convert_frame, orient='horizontal').pack(fill='x', pady=10)
-        self.lap1_widgets = self._create_track_selector(convert_frame, "Lap 1 Music", self.lap1_wav_path, self.select_lap1_wav, self.lap1_loops_var, self.lap1_loop_start_var, self.lap1_loop_end_var)
+        self.lap1_frame, self.lap1_widgets = self._create_track_selector(convert_frame, "Lap 1 Music", self.lap1_wav_path, self.select_lap1_wav, self.lap1_loops_var, self.lap1_loop_start_var, self.lap1_loop_end_var)
         ttk.Separator(convert_frame, orient='horizontal').pack(fill='x', pady=10)
-        self.final_lap_widgets = self._create_track_selector(convert_frame, "Final Lap Music", self.final_lap_wav_path, self.select_final_lap_wav, self.final_lap_loops_var, self.final_lap_loop_start_var, self.final_lap_loop_end_var)
+        self.final_lap_frame, self.final_lap_widgets = self._create_track_selector(convert_frame, "Final Lap Music", self.final_lap_wav_path, self.select_final_lap_wav, self.final_lap_loops_var, self.final_lap_loop_start_var, self.final_lap_loop_end_var)
 
         ttk.Separator(convert_frame, orient='horizontal').pack(fill='x', pady=10)
         self.convert_button = ttk.Button(convert_frame, text="Convert Selected Audio", command=self.convert_audio, state=tk.DISABLED)
@@ -214,7 +214,7 @@ class ModBuilderGUI(tk.Tk):
         ttk.Entry(loop_frame, textvariable=loop_start_var).grid(row=1, column=1, sticky=tk.EW, padx=5)
         ttk.Label(loop_frame, text="End:").grid(row=1, column=2, sticky=tk.W)
         ttk.Entry(loop_frame, textvariable=loop_end_var).grid(row=1, column=3, sticky=tk.EW, padx=5)
-        return loop_frame
+        return frame, loop_frame
 
     def _toggle_loop_widgets(self, loop_frame, loop_var):
         state = tk.NORMAL if loop_var.get() else tk.DISABLED
@@ -348,6 +348,13 @@ class ModBuilderGUI(tk.Tk):
         self._toggle_loop_widgets(self.final_lap_widgets, self.final_lap_loops_var)
         self.repack_button.config(state=tk.DISABLED)
         self.pak_button.config(state=tk.DISABLED)
+
+        # Show/hide intro widgets based on filename
+        acb_path = Path(filepath)
+        if acb_path.stem.startswith("BGM_STG2"):
+            self.intro_frame.pack_forget()
+        else:
+            self.intro_frame.pack(fill=tk.X, padx=5, pady=5)
 
     def unpack_acb(self):
         acb_path = Path(self.acb_file.get())
@@ -531,6 +538,8 @@ class ModBuilderGUI(tk.Tk):
         if len(self.original_files) < 5:
             messagebox.showerror("Error", "Cannot apply replacements: Not enough original files found in the unpacked folder.")
             return
+        
+        is_crossworlds = Path(self.acb_file.get()).stem.startswith("BGM_STG2")
 
         # Build the replacement map based on converted files
         if (OUTPUT_DIR / "lap1.hca").exists():
@@ -539,7 +548,7 @@ class ModBuilderGUI(tk.Tk):
         if (OUTPUT_DIR / "final_lap.hca").exists():
             self.replacement_map[self.original_files[2]] = "final_lap.hca" # Final Lap
             self.replacement_map[self.original_files[3]] = "final_lap.hca" # Final Lap intro
-        if (OUTPUT_DIR / "intro.hca").exists():
+        if not is_crossworlds and (OUTPUT_DIR / "intro.hca").exists():
             self.replacement_map[self.original_files[4]] = "intro.hca" # Intro
 
         if not self.replacement_map:
