@@ -907,7 +907,7 @@ class ModBuilderGUI(QMainWindow):
         # --- Define Special Track Structures ---
         special_structures = {
             # Dodonpa Factory
-            "BGM_STG1026": {"lap1": 0, "lap1_intro": 1, "final_lap": 4, "final_lap_intro": 2, "intro": 3},
+            "BGM_STG1026": {"lap1": 0, "lap1_intro": 1, "final_lap": 5, "final_lap_intro": None, "intro": 3},
             # Mystic Jungle, Kronos Island
             "BGM_STG1025": {"intro": 0, "lap1": 1, "lap1_intro": 2, "final_lap": 3, "final_lap_intro": 4},
             "BGM_STG1035": {"intro": 0, "lap1": 1, "lap1_intro": 2, "final_lap": 3, "final_lap_intro": 4},
