@@ -292,8 +292,8 @@ class ModBuilderGUI(QMainWindow):
     def _select_wav_file(self, path_edit):
         filepath, _ = QFileDialog.getOpenFileName(
             self,
-            caption="Select WAV file",
-            filter="WAV files (*.wav);;All files (*.*)",
+            caption="Select Audio File",
+            filter="Audio Files (*.wav *.mp3 *.flac *.ogg *.m4a);;All files (*.*)",
         )
         if filepath:
             path_edit.setText(filepath)

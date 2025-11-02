@@ -10,6 +10,7 @@ class ModLogic:
         self.OUTPUT_DIR = Path(output_dir)
         self.ACB_EDITOR = self.TOOLS_DIR / "AcbEditor.exe"
         self.CONVERT_BAT = self.TOOLS_DIR / "Convert2UNION.bat"
+        self.FFMPEG = self.TOOLS_DIR / "ffmpeg.exe"
         self.UNREAL_PAK = self.TOOLS_DIR / "UnrealPak.bat"
 
     def _execute_command(self, command, shell, cwd):
@@ -47,7 +48,15 @@ class ModLogic:
             os.makedirs(temp_input_dir)
             os.makedirs(temp_output_dir)
 
-            shutil.copy2(wav_path, temp_input_dir)
+            # If the input is not a WAV file, convert it to a temporary WAV using ffmpeg.
+            # Otherwise, just copy it.
+            if wav_path.suffix.lower() != '.wav':
+                print(f"  - '{wav_path.name}' is not a WAV file. Converting with ffmpeg...")
+                temp_wav_path = temp_input_dir / wav_path.with_suffix('.wav').name
+                ffmpeg_cmd = [str(self.FFMPEG), '-i', str(wav_path), str(temp_wav_path)]
+                subprocess.run(ffmpeg_cmd, check=True, capture_output=True) # Capture output to hide ffmpeg info
+            else:
+                shutil.copy2(wav_path, temp_input_dir)
 
             command_parts = shlex.split(base_command_line)
 
@@ -130,7 +139,7 @@ class ModLogic:
     def check_tools(self):
         """Checks if all required tools exist."""
         missing_tools = []
-        for tool in [self.ACB_EDITOR, self.CONVERT_BAT, self.UNREAL_PAK]:
+        for tool in [self.ACB_EDITOR, self.CONVERT_BAT, self.UNREAL_PAK, self.FFMPEG]:
             if not tool.exists():
                 missing_tools.append(str(tool))
         return missing_tools
