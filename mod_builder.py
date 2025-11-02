@@ -665,25 +665,63 @@ class ModBuilderGUI(tk.Tk):
         is_menu_bgm = acb_stem == "BGM"
         is_crossworlds = acb_stem.startswith("BGM_STG2")
 
+        # --- Define Special Track Structures ---
+        special_structures = {
+            # Dodonpa Factory
+            "BGM_STG1026": {"lap1": 0, "lap1_intro": 1, "final_lap": 4, "final_lap_intro": 2, "intro": 3},
+            # Mystic Jungle, Kronos Island
+            "BGM_STG1025": {"intro": 0, "lap1": 1, "lap1_intro": 2, "final_lap": 3, "final_lap_intro": 4},
+            "BGM_STG1035": {"intro": 0, "lap1": 1, "lap1_intro": 2, "final_lap": 3, "final_lap_intro": 4},
+            # Colorful Mall
+            "BGM_STG1030": {"lap1": 0, "lap1_intro": 1, "intro": 2, "final_lap": 3, "final_lap_intro": None},
+            # Sand Road, Market Street, Chao Park, Radical Highway, Egg Expo, Apotos
+            "BGM_STG1003": {"lap1": 0, "lap1_intro": 1, "intro": 2, "final_lap": 3, "final_lap_intro": 4},
+            "BGM_STG1005": {"lap1": 0, "lap1_intro": 1, "intro": 2, "final_lap": 3, "final_lap_intro": 4},
+            "BGM_STG1020": {"lap1": 0, "lap1_intro": 1, "intro": 2, "final_lap": 3, "final_lap_intro": 4},
+            "BGM_STG1021": {"lap1": 0, "lap1_intro": 1, "intro": 2, "final_lap": 3, "final_lap_intro": 4},
+            "BGM_STG1031": {"lap1": 0, "lap1_intro": 1, "intro": 2, "final_lap": 3, "final_lap_intro": 4},
+            "BGM_STG1032": {"lap1": 0, "lap1_intro": 1, "intro": 2, "final_lap": 3, "final_lap_intro": 4},
+        }
+
         # Build the replacement map based on converted files
         if is_menu_bgm:
             for hca_name, var_dict in self.menu_track_vars.items():
                 converted_file = OUTPUT_DIR / f"{hca_name}.hca"
                 if converted_file.exists():
                     self.replacement_map[f"{hca_name}.hca"] = f"{hca_name}.hca"
-        else:
+        elif acb_stem in special_structures:
+            print(f"Applying special structure for {acb_stem}...")
+            structure = special_structures[acb_stem]
+            
+            if (OUTPUT_DIR / "lap1.hca").exists():
+                if structure["lap1"] is not None: self.replacement_map[self.original_files[structure["lap1"]]] = "lap1.hca"
+                if structure["lap1_intro"] is not None: self.replacement_map[self.original_files[structure["lap1_intro"]]] = "lap1.hca"
+            
+            if (OUTPUT_DIR / "final_lap.hca").exists():
+                if structure["final_lap"] is not None: self.replacement_map[self.original_files[structure["final_lap"]]] = "final_lap.hca"
+                if structure["final_lap_intro"] is not None: self.replacement_map[self.original_files[structure["final_lap_intro"]]] = "final_lap.hca"
+            
+            if not is_crossworlds and (OUTPUT_DIR / "intro.hca").exists():
+                if structure["intro"] is not None: self.replacement_map[self.original_files[structure["intro"]]] = "intro.hca"
+
+        else: # Default logic for other stage tracks
             if len(self.original_files) < 5:
                 messagebox.showerror("Error", "Cannot apply replacements: Not enough original files found in the unpacked folder.")
                 return
 
             if (OUTPUT_DIR / "lap1.hca").exists():
                 self.replacement_map[self.original_files[0]] = "lap1.hca" # Lap 1
-                self.replacement_map[self.original_files[1]] = "lap1.hca" # Lap 1 intro
+                # Check to avoid index out of bounds if there's only 1 file
+                if len(self.original_files) > 1:
+                    self.replacement_map[self.original_files[1]] = "lap1.hca" # Lap 1 intro
             if (OUTPUT_DIR / "final_lap.hca").exists():
-                self.replacement_map[self.original_files[2]] = "final_lap.hca" # Final Lap
-                self.replacement_map[self.original_files[3]] = "final_lap.hca" # Final Lap intro
+                if len(self.original_files) > 2:
+                    self.replacement_map[self.original_files[2]] = "final_lap.hca" # Final Lap
+                if len(self.original_files) > 3:
+                    self.replacement_map[self.original_files[3]] = "final_lap.hca" # Final Lap intro
             if not is_crossworlds and (OUTPUT_DIR / "intro.hca").exists():
-                self.replacement_map[self.original_files[4]] = "intro.hca" # Intro
+                if len(self.original_files) > 4:
+                    self.replacement_map[self.original_files[4]] = "intro.hca" # Intro
 
         if not self.replacement_map:
             messagebox.showinfo("No Changes", "No converted tracks found in 'output' folder. Nothing to apply.")
