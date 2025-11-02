@@ -35,7 +35,10 @@ BGM_DATA = {
         "2004": "Golden Temple", "2005": "Magma Planet", "2007": "Hidden World",
         "2009": "Steampunk City", "2010": "Dragon Road", "2011": "Holoska",
         "2012": "Galactic Parade", "2014": "Dinosaur Jungle", "2015": "Sweet Mountain",
-        "2016": "White Cave", "2017": "Cyber Space", "2019": "Digital Circuit"
+        "2016": "White Cave", "2017": "Cyber Space", "2019": "Digital Circuit",
+    },
+    "Voice Lines": {
+        "CRE": "Cream the Rabbit",
     }
 }
 
@@ -54,6 +57,241 @@ MENU_BGM_TRACKS = {
     "CrossWorld Time Trial Intro": "00053_streaming",
     "Monster Truck": "00040_streaming",
 }
+
+# Placeholder for Cream's voice lines.
+# This will be populated with the list of 230 names.
+VOICE_CRE_TRACKS = {
+    "1: approach_rival": "00000_streaming",
+    "2: boost_high_1": "00001_streaming",
+    "3: boost_high_2": "00002_streaming",
+    "4: boost_low": "00003_streaming",
+    "5: boost_mid_1": "00004_streaming",
+    "6: boost_mid_2": "00005_streaming",
+    "7: break_object": "00006_streaming",
+    "8: ceremony_1": "00007_streaming",
+    "9: ceremony_2": "00008_streaming",
+    "10: characterselect": "00009_streaming",
+    "11: checkpoint": "00010_streaming",
+    "12: common_discontent": "00011_streaming",
+    "13: common_elated": "00012_streaming",
+    "14: common_happy": "00013_streaming",
+    "15: common_incite": "00014_streaming",
+    "16: common_regretable": "00015_streaming",
+    "17: countdown_1": "00016_streaming",
+    "18: countdown_2": "00017_streaming",
+    "19: countdown_festa_1": "00018_streaming",
+    "20: countdown_festa_2": "00019_streaming",
+    "21: countdown_finalround_1": "00020_streaming",
+    "22: countdown_finalround_2": "00021_streaming",
+    "23: countdown_firstround": "00022_streaming",
+    "24: countdown_rankup": "00023_streaming",
+    "25: coursecomment_cold": "00024_streaming",
+    "26: coursecomment_fear": "00025_streaming",
+    "27: coursecomment_fun": "00026_streaming",
+    "28: coursecomment_hot": "00027_streaming",
+    "29: coursecomment_like": "00028_streaming",
+    "30: coursecomment_nostalgic": "00029_streaming",
+    "31: coursecomment_stg1020": "00030_streaming",
+    "32: coursecomment_stg1030": "00031_streaming",
+    "33: coursecomment_stg2001": "00032_streaming",
+    "34: coursecomment_surprise": "00033_streaming",
+    "35: courseout_1": "00034_streaming",
+    "36: courseout_2": "00035_streaming",
+    "37: dodge_item_1": "00036_streaming",
+    "38: dodge_item_2": "00037_streaming",
+    "39: dropout": "00038_streaming",
+    "40: enter_gate_1": "00039_streaming",
+    "41: enter_gate_2": "00040_streaming",
+    "42: enter_shortcut": "00041_streaming",
+    "43: fail_damage_1": "00042_streaming",
+    "44: fail_damage_2": "00043_streaming",
+    "45: fail_item_bodycut": "00044_streaming",
+    "46: fail_item_damage_1": "00045_streaming",
+    "47: fail_item_damage_2": "00046_streaming",
+    "48: fail_item_monster": "00047_streaming",
+    "49: fail_item_to_amy": "00048_streaming",
+    "50: fail_item_to_big": "00049_streaming",
+    "51: fail_item_to_bla": "00050_streaming",
+    "52: fail_item_to_cha": "00051_streaming",
+    "53: fail_item_to_egg": "00052_streaming",
+    "54: fail_item_to_egp": "00053_streaming",
+    "55: fail_item_to_esp": "00054_streaming",
+    "56: fail_item_to_jet": "00055_streaming",
+    "57: fail_item_to_knu": "00056_streaming",
+    "58: fail_item_to_met": "00057_streaming",
+    "59: fail_item_to_ome": "00058_streaming",
+    "60: fail_item_to_rou": "00059_streaming",
+    "61: fail_item_to_sag": "00060_streaming",
+    "62: fail_item_to_sha": "00061_streaming",
+    "63: fail_item_to_sil": "00062_streaming",
+    "64: fail_item_to_son": "00063_streaming",
+    "65: fail_item_to_sto": "00064_streaming",
+    "66: fail_item_to_tai": "00065_streaming",
+    "67: fail_item_to_vec": "00066_streaming",
+    "68: fail_item_to_wav": "00067_streaming",
+    "69: fail_item_to_zav": "00068_streaming",
+    "70: fail_item_to_zaz": "00069_streaming",
+    "71: fail_push_1": "00070_streaming",
+    "72: fail_push_2": "00071_streaming",
+    "73: fail_spin_1": "00072_streaming",
+    "74: fail_spin_2": "00073_streaming",
+    "75: fail_wall_1": "00074_streaming",
+    "76: fail_wall_2": "00075_streaming",
+    "77: first_race_movie_lose_rival": "00076_streaming",
+    "78: first_race_movie_win_rival": "00077_streaming",
+    "79: get_item": "00078_streaming",
+    "80: get_item_common": "00079_streaming",
+    "81: get_machineparts": "00080_streaming",
+    "82: ghost_lose": "00081_streaming",
+    "83: ghost_win": "00082_streaming",
+    "84: goal_common": "00083_streaming",
+    "85: goal_high_1": "00084_streaming",
+    "86: goal_high_2": "00085_streaming",
+    "87: goal_low_1": "00086_streaming",
+    "88: goal_low_2": "00087_streaming",
+    "89: goal_middle_1": "00088_streaming",
+    "90: goal_middle_2": "00089_streaming",
+    "91: goal_top_1": "00090_streaming",
+    "92: goal_top_2": "00091_streaming",
+    "93: hit_item_1": "00092_streaming",
+    "94: hit_item_2": "00093_streaming",
+    "95: hit_item_to_amy": "00094_streaming",
+    "96: hit_item_to_big": "00095_streaming",
+    "97: hit_item_to_bla": "00096_streaming",
+    "98: hit_item_to_cha": "00097_streaming",
+    "99: hit_item_to_egg": "00098_streaming",
+    "100: hit_item_to_egp": "00099_streaming",
+    "101: hit_item_to_esp": "00100_streaming",
+    "102: hit_item_to_jet": "00101_streaming",
+    "103: hit_item_to_knu": "00102_streaming",
+    "104: hit_item_to_met": "00103_streaming",
+    "105: hit_item_to_ome": "00104_streaming",
+    "106: hit_item_to_rou": "00105_streaming",
+    "107: hit_item_to_sag": "00106_streaming",
+    "108: hit_item_to_sha": "00107_streaming",
+    "109: hit_item_to_sil": "00108_streaming",
+    "110: hit_item_to_son": "00109_streaming",
+    "111: hit_item_to_sto": "00110_streaming",
+    "112: hit_item_to_tai": "00111_streaming",
+    "113: hit_item_to_vec": "00112_streaming",
+    "114: hit_item_to_wav": "00113_streaming",
+    "115: hit_item_to_zav": "00114_streaming",
+    "116: hit_item_to_zaz": "00115_streaming",
+    "117: introduce": "00116_streaming",
+    "118: is_approached_rival": "00117_streaming",
+    "119: is_overtaken_rival": "00118_streaming",
+    "120: keep_item": "00119_streaming",
+    "121: last_race_movie_lose_rival": "00120_streaming",
+    "122: last_race_movie_win_rival": "00121_streaming",
+    "123: left_1": "00122_streaming",
+    "124: left_2": "00123_streaming",
+    "125: max_ring": "00124_streaming",
+    "126: newrecord": "00125_streaming",
+    "127: overtake_1": "00126_streaming",
+    "128: overtake_2": "00127_streaming",
+    "129: overtake_rival": "00128_streaming",
+    "130: playerlevel_up": "00129_streaming",
+    "131: push_1": "00130_streaming",
+    "132: push_2": "00131_streaming",
+    "133: rankdown": "00132_streaming",
+    "134: rankup_a": "00133_streaming",
+    "135: rankup_b": "00134_streaming",
+    "136: rankup_c": "00135_streaming",
+    "137: rankup_common_1": "00136_streaming",
+    "138: rankup_common_2": "00137_streaming",
+    "139: rankup_d": "00138_streaming",
+    "140: rankup_highest_1": "00139_streaming",
+    "141: rankup_highest_2": "00140_streaming",
+    "142: rankup_legend": "00141_streaming",
+    "143: rankup_special": "00142_streaming",
+    "144: reaction_behind_player_rival": "00143_streaming",
+    "145: reaction_select_gate_rival": "00144_streaming",
+    "146: reaction_top_player_rival": "00145_streaming",
+    "147: ready_movie_first_to_amy_rival": "00146_streaming",
+    "148: ready_movie_first_to_big_rival": "00147_streaming",
+    "149: ready_movie_first_to_bla_rival": "00148_streaming",
+    "150: ready_movie_first_to_cha_rival": "00149_streaming",
+    "151: ready_movie_first_to_egg_rival": "00150_streaming",
+    "152: ready_movie_first_to_egp_rival": "00151_streaming",
+    "153: ready_movie_first_to_esp_rival": "00152_streaming",
+    "154: ready_movie_first_to_jet_rival": "00153_streaming",
+    "155: ready_movie_first_to_knu_rival": "00154_streaming",
+    "156: ready_movie_first_to_met_rival": "00155_streaming",
+    "157: ready_movie_first_to_ome_rival": "00156_streaming",
+    "158: ready_movie_first_to_rou_rival": "00157_streaming",
+    "159: ready_movie_first_to_sag_rival": "00158_streaming",
+    "160: ready_movie_first_to_sha_rival": "00159_streaming",
+    "161: ready_movie_first_to_sil_rival": "00160_streaming",
+    "162: ready_movie_first_to_son_rival": "00161_streaming",
+    "163: ready_movie_first_to_sto_rival": "00162_streaming",
+    "164: ready_movie_first_to_tai_rival": "00163_streaming",
+    "165: ready_movie_first_to_vec_rival": "00164_streaming",
+    "166: ready_movie_first_to_wav_rival": "00165_streaming",
+    "167: ready_movie_first_to_zav_rival": "00166_streaming",
+    "168: ready_movie_first_to_zaz_rival": "00167_streaming",
+    "169: ready_movie_last_to_amy_rival": "00168_streaming",
+    "170: ready_movie_last_to_big_rival": "00169_streaming",
+    "171: ready_movie_last_to_bla_rival": "00170_streaming",
+    "172: ready_movie_last_to_cha_rival": "00171_streaming",
+    "173: ready_movie_last_to_egg_rival": "00172_streaming",
+    "174: ready_movie_last_to_egp_rival": "00173_streaming",
+    "175: ready_movie_last_to_esp_rival": "00174_streaming",
+    "176: ready_movie_last_to_jet_rival": "00175_streaming",
+    "177: ready_movie_last_to_knu_rival": "00176_streaming",
+    "178: ready_movie_last_to_met_rival": "00177_streaming",
+    "179: ready_movie_last_to_ome_rival": "00178_streaming",
+    "180: ready_movie_last_to_rou_rival": "00179_streaming",
+    "181: ready_movie_last_to_sag_rival": "00180_streaming",
+    "182: ready_movie_last_to_sha_rival": "00181_streaming",
+    "183: ready_movie_last_to_sil_rival": "00182_streaming",
+    "184: ready_movie_last_to_son_rival": "00183_streaming",
+    "185: ready_movie_last_to_sto_rival": "00184_streaming",
+    "186: ready_movie_last_to_tai_rival": "00185_streaming",
+    "187: ready_movie_last_to_vec_rival": "00186_streaming",
+    "188: ready_movie_last_to_wav_rival": "00187_streaming",
+    "189: ready_movie_last_to_zav_rival": "00188_streaming",
+    "190: ready_movie_last_to_zaz_rival": "00189_streaming",
+    "191: ready_movie_rival": "00190_streaming",
+    "192: result_movie_draw_rival": "00191_streaming",
+    "193: result_movie_lose_rival": "00192_streaming",
+    "194: result_movie_win_rival": "00193_streaming",
+    "195: reverse": "00194_streaming",
+    "196: select_gate_1": "00195_streaming",
+    "197: select_gate_2": "00196_streaming",
+    "198: select_gate_rival": "00197_streaming",
+    "199: slipstream": "00198_streaming",
+    "200: stamp_1": "00199_streaming",
+    "201: stamp_2": "00200_streaming",
+    "202: stamp_3": "00201_streaming",
+    "203: stamp_4": "00202_streaming",
+    "204: stamp_5": "00203_streaming",
+    "205: stamp_7": "00204_streaming",
+    "206: stamp_6; stamp_8": "00205_streaming",
+    "207: startboost_1": "00206_streaming",
+    "208: startboost_2": "00207_streaming",
+    "209: startboost_3": "00208_streaming",
+    "210: startboost_4": "00209_streaming",
+    "211: stunt_first": "00210_streaming",
+    "212: stunt_second": "00211_streaming",
+    "213: stunt_third_1": "00212_streaming",
+    "214: stunt_third_2": "00213_streaming",
+    "215: timetrial_highrank": "00214_streaming",
+    "216: timetrial_lowrank": "00215_streaming",
+    "217: use_item_attack_1": "00216_streaming",
+    "218: use_item_attack_2": "00217_streaming",
+    "219: use_item_bodycut": "00218_streaming",
+    "220: use_item_bomb_max": "00219_streaming",
+    "221: use_item_boost_1": "00220_streaming",
+    "222: use_item_boost_2": "00221_streaming",
+    "223: use_item_darkchao": "00222_streaming",
+    "224: use_item_king": "00223_streaming",
+    "225: use_item_monster": "00224_streaming",
+    "226: use_item_put_1": "00225_streaming",
+    "227: use_item_put_2": "00226_streaming",
+    "228: use_item_ring": "00227_streaming",
+    "229: use_item_violetvoid": "00228_streaming",
+    "230: use_item_warp": "00229_streaming",
+}
 class BGMSelectorWindow(tk.Toplevel):
     def __init__(self, parent):
         super().__init__(parent)
@@ -71,7 +309,12 @@ class BGMSelectorWindow(tk.Toplevel):
         for category, tracks in BGM_DATA.items():
             category_node = tree.insert("", "end", text=category, open=True)
             for id_num, name in tracks.items():
-                filename = f"BGM_STG{id_num}.acb" if category != "Menu & System" else "BGM.acb"
+                if category == "Menu & System":
+                    filename = "BGM.acb"
+                elif category == "Voice Lines":
+                    filename = f"VOICE_{id_num}.acb"
+                else:
+                    filename = f"BGM_STG{id_num}.acb"
                 display_text = f"{id_num}: {name}" if category != "Menu & System" else name
                 tree.insert(category_node, "end", text=display_text, values=(filename,))
         def on_select():
@@ -157,6 +400,7 @@ class ModBuilderGUI(tk.Tk):
         self.status_var = tk.StringVar(value="Ready.")
         # --- New state vars for menu music ---
         self.menu_track_vars = {}
+        self.voice_cre_track_vars = {}
 
         self.replacement_map = {}
 
@@ -255,6 +499,18 @@ class ModBuilderGUI(tk.Tk):
             frame, _ = self._create_track_selector(self.menu_music_frame, label, path_var, lambda p=path_var: self._select_wav_file(p), loop_var, start_var, end_var)
             ttk.Separator(self.menu_music_frame, orient='horizontal').pack(fill='x', pady=5, after=frame)
 
+        # --- New Voice Line Frame (for VOICE_CRE) ---
+        self.voice_cre_frame = ttk.Frame(scrollable_frame)
+        # Don't pack it yet, will be managed in set_acb_file
+
+        for label, hca_name in VOICE_CRE_TRACKS.items():
+            path_var = tk.StringVar()
+            loop_var = tk.BooleanVar()
+            start_var = tk.StringVar()
+            end_var = tk.StringVar()
+            self.voice_cre_track_vars[hca_name] = {'path': path_var, 'loop': loop_var, 'start': start_var, 'end': end_var}
+            frame, _ = self._create_track_selector(self.voice_cre_frame, label, path_var, lambda p=path_var: self._select_wav_file(p), loop_var, start_var, end_var)
+            ttk.Separator(self.voice_cre_frame, orient='horizontal').pack(fill='x', pady=5, after=frame)
         # Convert button is outside the scrollable area
         self.convert_button = ttk.Button(convert_outer_frame, text="Convert Selected Audio", command=self.convert_audio, state=tk.DISABLED)
         # self.convert_button.pack(pady=10) # Packed later
@@ -325,6 +581,11 @@ class ModBuilderGUI(tk.Tk):
             # Find the corresponding loop_frame inside the main frame for this track
             # This is fragile, but it's the simplest way without a big refactor.
             loop_frame = [child for child in menu_frames.pop(0).winfo_children() if isinstance(child, ttk.Frame)][0]
+            var_dict['loop'].set(False)
+            self._toggle_loop_widgets(loop_frame, var_dict['loop'])
+        voice_frames = [child for child in self.voice_cre_frame.winfo_children() if isinstance(child, ttk.Frame)]
+        for hca_name, var_dict in self.voice_cre_track_vars.items():
+            loop_frame = [child for child in voice_frames.pop(0).winfo_children() if isinstance(child, ttk.Frame)][0]
             var_dict['loop'].set(False)
             self._toggle_loop_widgets(loop_frame, var_dict['loop'])
 
@@ -438,6 +699,9 @@ class ModBuilderGUI(tk.Tk):
         self.intro_loops_var.set(False); self.lap1_loops_var.set(False); self.final_lap_loops_var.set(False)
 
         # Hide conversion options and show the placeholder text
+        self.stage_music_frame.pack_forget()
+        self.menu_music_frame.pack_forget()
+        self.voice_cre_frame.pack_forget()
         self.canvas.pack_forget()
         self.scrollbar.pack_forget()
         self.convert_button.pack_forget()
@@ -450,6 +714,9 @@ class ModBuilderGUI(tk.Tk):
             var_dict['path'].set('')
             var_dict['loop'].set(False)
             # Loop widgets are toggled off during check_tools init
+        for var_dict in self.voice_cre_track_vars.values():
+            var_dict['path'].set('')
+            var_dict['loop'].set(False)
 
         self.repack_button.config(state=tk.DISABLED)
         self.pak_button.config(state=tk.DISABLED)
@@ -457,10 +724,10 @@ class ModBuilderGUI(tk.Tk):
         # Show/hide widgets based on filename
         acb_path = Path(filepath)
         if acb_path.stem == "BGM":
-            self.stage_music_frame.pack_forget()
             self.menu_music_frame.pack(fill=tk.X)
+        elif acb_path.stem == "VOICE_CRE":
+            self.voice_cre_frame.pack(fill=tk.X)
         else:
-            self.menu_music_frame.pack_forget()
             self.stage_music_frame.pack(fill=tk.X)
             if acb_path.stem.startswith("BGM_STG2"):
                 self.intro_frame.pack_forget()
@@ -533,12 +800,17 @@ class ModBuilderGUI(tk.Tk):
         # --- Prepare list of conversions to run ---
         tasks = []
         is_menu_bgm = acb_path.stem == "BGM"
+        is_voice_cre = acb_path.stem == "VOICE_CRE"
 
         if is_menu_bgm:
             for hca_name, var_dict in self.menu_track_vars.items():
                 if var_dict['path'].get():
                     tasks.append((hca_name, var_dict['path'], var_dict['loop'], var_dict['start'], var_dict['end']))
-        else:
+        elif is_voice_cre:
+            for hca_name, var_dict in self.voice_cre_track_vars.items():
+                if var_dict['path'].get():
+                    tasks.append((hca_name, var_dict['path'], var_dict['loop'], var_dict['start'], var_dict['end']))
+        else: # Stage music
             if self.intro_wav_path.get():
                 tasks.append(("intro", self.intro_wav_path, self.intro_loops_var, self.intro_loop_start_var, self.intro_loop_end_var))
             if self.lap1_wav_path.get():
@@ -672,6 +944,7 @@ class ModBuilderGUI(tk.Tk):
 
         acb_stem = Path(self.acb_file.get()).stem
         is_menu_bgm = acb_stem == "BGM"
+        is_voice_cre = acb_stem == "VOICE_CRE"
         is_crossworlds = acb_stem.startswith("BGM_STG2")
 
         # --- Define Special Track Structures ---
@@ -699,7 +972,12 @@ class ModBuilderGUI(tk.Tk):
             for hca_name, var_dict in self.menu_track_vars.items():
                 converted_file = OUTPUT_DIR / f"{hca_name}.hca"
                 if converted_file.exists():
-                    self.replacement_map[f"{hca_name}.hca"] = f"{hca_name}.hca"
+                    self.replacement_map[hca_name + ".hca"] = hca_name + ".hca"
+        elif is_voice_cre:
+            for hca_name, var_dict in self.voice_cre_track_vars.items():
+                converted_file = OUTPUT_DIR / f"{hca_name}.hca"
+                if converted_file.exists():
+                    self.replacement_map[hca_name + ".hca"] = hca_name + ".hca"
         elif acb_stem in special_structures:
             print(f"Applying special structure for {acb_stem}...")
             structure = special_structures[acb_stem]
