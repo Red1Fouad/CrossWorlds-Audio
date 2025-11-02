@@ -117,6 +117,15 @@ class ModBuilderGUI(tk.Tk):
         self.title("CrossWorlds Music Mod Builder")
         self.geometry("800x750")
 
+        # --- Menu Bar ---
+        menu_bar = tk.Menu(self)
+        self.config(menu=menu_bar)
+
+        # Create a "Help" menu
+        help_menu = tk.Menu(menu_bar, tearoff=0)
+        menu_bar.add_cascade(label="Help", menu=help_menu)
+        help_menu.add_command(label="Credits", command=self.show_credits)
+
         # --- State Variables ---
         self.acb_file = tk.StringVar()
         self.unpacked_folder = tk.StringVar()
@@ -668,7 +677,7 @@ class ModBuilderGUI(tk.Tk):
         # --- Define Special Track Structures ---
         special_structures = {
             # Dodonpa Factory
-            "BGM_STG1026": {"lap1": 0, "lap1_intro": 1, "final_lap": 4, "final_lap_intro": 2, "intro": 3},
+            "BGM_STG1026": {"lap1": 0, "lap1_intro": 1, "final_lap": 5, "final_lap_intro": None, "intro": 3},
             # Mystic Jungle, Kronos Island
             "BGM_STG1025": {"intro": 0, "lap1": 1, "lap1_intro": 2, "final_lap": 3, "final_lap_intro": 4},
             "BGM_STG1035": {"intro": 0, "lap1": 1, "lap1_intro": 2, "final_lap": 3, "final_lap_intro": 4},
@@ -681,6 +690,8 @@ class ModBuilderGUI(tk.Tk):
             "BGM_STG1021": {"lap1": 0, "lap1_intro": 1, "intro": 2, "final_lap": 3, "final_lap_intro": 4},
             "BGM_STG1031": {"lap1": 0, "lap1_intro": 1, "intro": 2, "final_lap": 3, "final_lap_intro": 4},
             "BGM_STG1032": {"lap1": 0, "lap1_intro": 1, "intro": 2, "final_lap": 3, "final_lap_intro": 4},
+            # Golden Temple (Crossworlds)
+            "BGM_STG2004": {"lap1": 0, "lap1_intro": 1, "final_lap": 2, "final_lap_intro": None, "intro": None},
         }
 
         # Build the replacement map based on converted files
@@ -798,6 +809,18 @@ class ModBuilderGUI(tk.Tk):
                 subprocess.run(["xdg-open", output_dir], check=True)
         except Exception as e:
             messagebox.showerror("Error", f"Could not open output directory:\n{e}")
+
+    def show_credits(self):
+        """Displays the credits window."""
+        credits_text = (
+            "CrossWorlds Music Mod Builder\n\n"
+            "Created by: RED1\n\n"
+            "A tool to simplify the process of creating music mods for\n"
+            "Sonic Racing: Crossworlds.\n\n"
+            "Special Thanks:\n"
+            "Lycus - For Testing and Feedback\n"
+        )
+        messagebox.showinfo("Credits", credits_text)
 if __name__ == "__main__":
     app = ModBuilderGUI()
     app.mainloop()
