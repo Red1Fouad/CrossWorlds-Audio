@@ -4,13 +4,17 @@ import sys
 import re
 import threading
 import queue
+import shlex
 from pathlib import Path
 
 try:
-    import tkinter as tk
-    from tkinter import ttk, filedialog, messagebox, scrolledtext
+    from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel,
+                                   QLineEdit, QPushButton, QFileDialog, QMessageBox, QTreeWidget, QTreeWidgetItem,
+                                   QScrollArea, QCheckBox, QFrame, QMenuBar, QStatusBar, QDialog,
+                                   QDialogButtonBox)
+    from PySide6.QtCore import Qt, QThread, Signal, QObject
 except ImportError:
-    print("Error: tkinter module not found. Please ensure you are running a standard Python installation.")
+    print("Error: PySide6 module not found. Please install it using 'pip install PySide6'")
     sys.exit(1)
 
 
@@ -292,43 +296,57 @@ VOICE_CRE_TRACKS = {
     "229: use_item_violetvoid": "00228_streaming",
     "230: use_item_warp": "00229_streaming",
 }
-class BGMSelectorWindow(tk.Toplevel):
-    def __init__(self, parent):
+class BGMSelectorWindow(QDialog):
+    def __init__(self, parent=None):
         super().__init__(parent)
-        self.title("Select Common BGM")
-        self.geometry("600x600")
-        self.transient(parent)
-        self.grab_set()
+        self.setWindowTitle("Select Common BGM")
+        self.resize(500, 600)
         self.result = None
 
-        tree = ttk.Treeview(self, columns=("filename",), show="tree headings")
-        tree.heading("#0", text="Name")
-        tree.heading("filename", text="Filename")
-        tree.pack(fill="both", expand=True, padx=10, pady=10)
+        layout = QVBoxLayout(self)
+
+        self.tree = QTreeWidget()
+        self.tree.setHeaderLabels(["Name", "Filename"])
+        self.tree.setColumnWidth(0, 350)
+        layout.addWidget(self.tree)
 
         for category, tracks in BGM_DATA.items():
-            category_node = tree.insert("", "end", text=category, open=True)
+            category_node = QTreeWidgetItem(self.tree, [category])
+            category_node.setExpanded(True)
             for id_num, name in tracks.items():
+                filename = ""
                 if category == "Menu & System":
                     filename = "BGM.acb"
                 elif category == "Voice Lines":
                     filename = f"VOICE_{id_num}.acb"
                 else:
                     filename = f"BGM_STG{id_num}.acb"
-                display_text = f"{id_num}: {name}" if category != "Menu & System" else name
-                tree.insert(category_node, "end", text=display_text, values=(filename,))
-        def on_select():
-            selected_item = tree.focus()
-            if selected_item and tree.parent(selected_item): # Ensure a child item is selected
-                self.result = tree.item(selected_item, "values")[0]
-                self.destroy()
+                
+                display_text = f"{id_num}: {name}" if category not in ["Menu & System", "Voice Lines"] else name
+                QTreeWidgetItem(category_node, [display_text, filename])
 
-        tree.bind("<Double-1>", lambda e: on_select())
-        
-        btn_frame = ttk.Frame(self)
-        btn_frame.pack(pady=5)
-        ttk.Button(btn_frame, text="Select", command=on_select).pack(side="left", padx=5)
-        ttk.Button(btn_frame, text="Cancel", command=self.destroy).pack(side="left", padx=5)
+        self.tree.itemDoubleClicked.connect(self.on_select)
+
+        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        button_box.accepted.connect(self.on_accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+
+    def on_select(self, item, column):
+        if item and item.childCount() == 0: # It's a selectable item, not a category
+            self.on_accept()
+
+    def on_accept(self):
+        """Handles the logic for when the 'OK' or 'Select' button is clicked."""
+        try:
+            selected_items = self.tree.selectedItems()
+            if selected_items and selected_items[0].childCount() == 0:
+                self.result = selected_items[0].text(1)
+                self.accept()
+            else:
+                QMessageBox.warning(self, "Selection Error", "Please select a specific track, not a category.")
+        except IndexError:
+             QMessageBox.warning(self, "Selection Error", "Please select a track.")
 
 # --- Configuration ---
 # Set the paths to your tools relative to this script.
@@ -339,10 +357,13 @@ UNREAL_PAK = TOOLS_DIR / "UnrealPak.bat"
 INPUT_DIR = Path("input")
 OUTPUT_DIR = Path("output")
 
-class ThreadedTask(threading.Thread):
-    def __init__(self, queue, function, *args, **kwargs):
+class Worker(QObject):
+    """Worker for running tasks in a separate thread."""
+    finished = Signal(object)
+    error = Signal(Exception)
+
+    def __init__(self, function, *args, **kwargs):
         super().__init__()
-        self.queue = queue
         self.function = function
         self.args = args
         self.kwargs = kwargs
@@ -350,213 +371,212 @@ class ThreadedTask(threading.Thread):
     def run(self):
         try:
             result = self.function(*self.args, **self.kwargs)
-            self.queue.put(('success', result))
+            self.finished.emit(result)
         except Exception as e:
-            self.queue.put(('error', e))
+            self.error.emit(e)
 
-class ModBuilderGUI(tk.Tk):
+class ModBuilderGUI(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.title("CrossWorlds Music Mod Builder")
-        self.geometry("800x750")
+        self.setWindowTitle("CrossWorlds Music Mod Builder")
+        self.resize(800, 750)
+
+        self.thread = None
+        self.worker = None
 
         # --- Menu Bar ---
-        menu_bar = tk.Menu(self)
-        self.config(menu=menu_bar)
-
-        # Create a "Help" menu
-        help_menu = tk.Menu(menu_bar, tearoff=0)
-        menu_bar.add_cascade(label="Help", menu=help_menu)
-        help_menu.add_command(label="Credits", command=self.show_credits)
+        menu_bar = self.menuBar()
+        help_menu = menu_bar.addMenu("Help")
+        credits_action = help_menu.addAction("Credits")
+        credits_action.triggered.connect(self.show_credits)
 
         # --- State Variables ---
-        self.acb_file = tk.StringVar()
-        self.unpacked_folder = tk.StringVar()
-        self.mod_name = tk.StringVar(value="MyAwesomeMusicMod")
+        self._acb_file = ""
+        self._unpacked_folder = ""
+        self._mod_name = "MyAwesomeMusicMod"
         self.original_files = []
         self.new_files = []
-        # StringVars for the new replacement comboboxes
-        self.intro_var = tk.StringVar()
-        self.lap1_var = tk.StringVar()
-        self.final_lap_var = tk.StringVar()
 
         # --- New state vars for direct file selection ---
-        self.intro_wav_path = tk.StringVar()
-        self.lap1_wav_path = tk.StringVar()
-        self.final_lap_wav_path = tk.StringVar()
+        self.intro_track_vars = {}
+        self.lap1_track_vars = {}
+        self.final_lap_track_vars = {}
 
-        self.intro_loops_var = tk.BooleanVar()
-        self.intro_loop_start_var = tk.StringVar()
-        self.intro_loop_end_var = tk.StringVar()
-
-        self.lap1_loops_var = tk.BooleanVar()
-        self.lap1_loop_start_var = tk.StringVar()
-        self.lap1_loop_end_var = tk.StringVar()
-
-        self.final_lap_loops_var = tk.BooleanVar()
-        self.final_lap_loop_start_var = tk.StringVar()
-        self.final_lap_loop_end_var = tk.StringVar()
-        
-        self.status_var = tk.StringVar(value="Ready.")
         # --- New state vars for menu music ---
         self.menu_track_vars = {}
         self.voice_cre_track_vars = {}
 
         self.replacement_map = {}
 
-        # --- Main Layout ---
-        main_frame = ttk.Frame(self, padding="10")
-        main_frame.pack(fill=tk.BOTH, expand=True)
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        main_layout = QVBoxLayout(central_widget)
 
         # --- Create Widgets ---
-        self._create_widgets(main_frame)
+        self._create_widgets(main_layout)
 
         # --- Check for tools on startup ---
         self.check_tools()
 
         # --- Status Bar ---
-        status_bar = ttk.Label(self, textvariable=self.status_var, anchor=tk.W, relief=tk.SUNKEN, padding="2 5")
-        status_bar.pack(side=tk.BOTTOM, fill=tk.X)
+        self.status_bar = QStatusBar()
+        self.setStatusBar(self.status_bar)
+        self.status_bar.showMessage("Ready.")
 
-    def _create_widgets(self, parent):
+    def _create_widgets(self, main_layout):
         # --- Step 1: Unpack ---
-        unpack_frame = ttk.LabelFrame(parent, text="Step 1: Select & Unpack ACB", padding="10")
-        unpack_frame.pack(fill=tk.X, pady=5)
-
-        ttk.Label(unpack_frame, text="ACB File:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
-        ttk.Entry(unpack_frame, textvariable=self.acb_file, state='readonly').grid(row=0, column=1, columnspan=2, sticky=tk.EW, padx=5)
+        unpack_group = QGroupBox("Step 1: Select & Unpack ACB")
+        main_layout.addWidget(unpack_group)
+        unpack_layout = QVBoxLayout(unpack_group)
         
-        ttk.Button(unpack_frame, text="Select BGM...", command=self.select_common_bgm).grid(row=1, column=1, sticky=tk.W, padx=5, pady=5)
-        self.unpack_button = ttk.Button(unpack_frame, text="Unpack", command=self.unpack_acb, state=tk.DISABLED)
-        self.unpack_button.grid(row=1, column=2, sticky=tk.E, padx=5, pady=5)
-        unpack_frame.columnconfigure(1, weight=1)
+        acb_layout = QHBoxLayout()
+        acb_layout.addWidget(QLabel("ACB File:"))
+        self.acb_file_edit = QLineEdit()
+        self.acb_file_edit.setReadOnly(True)
+        acb_layout.addWidget(self.acb_file_edit)
+        unpack_layout.addLayout(acb_layout)
+
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        select_bgm_button = QPushButton("Select BGM...")
+        select_bgm_button.clicked.connect(self.select_common_bgm)
+        btn_layout.addWidget(select_bgm_button)
+        self.unpack_button = QPushButton("Unpack")
+        self.unpack_button.clicked.connect(self.unpack_acb)
+        self.unpack_button.setEnabled(False)
+        btn_layout.addWidget(self.unpack_button)
+        unpack_layout.addLayout(btn_layout)
 
         # --- Step 2: Convert ---
-        convert_outer_frame = ttk.LabelFrame(parent, text="Step 2: Convert Audio", padding="10")
-        convert_outer_frame.pack(fill=tk.BOTH, expand=True, pady=5)
+        convert_group = QGroupBox("Step 2: Convert Audio")
+        main_layout.addWidget(convert_group)
+        convert_outer_layout = QVBoxLayout(convert_group)
 
         # Add a placeholder label
-        self.unpack_first_label = ttk.Label(convert_outer_frame, text="Please select and unpack an ACB file in Step 1 to see conversion options.", justify=tk.CENTER)
-        self.unpack_first_label.pack(expand=True)
+        self.unpack_first_label = QLabel("Please select and unpack an ACB file in Step 1 to see conversion options.")
+        self.unpack_first_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        convert_outer_layout.addWidget(self.unpack_first_label)
 
-        # Create a canvas and a scrollbar for the scrollable area
-        self.canvas = tk.Canvas(convert_outer_frame, highlightthickness=0)
-        self.scrollbar = ttk.Scrollbar(convert_outer_frame, orient="vertical", command=self.canvas.yview)
-        scrollable_frame = ttk.Frame(self.canvas)
-
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: self.canvas.configure(
-                scrollregion=self.canvas.bbox("all")
-            )
-        )
-
-        self.canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        self.canvas.configure(yscrollcommand=self.scrollbar.set)
-
-        # Widgets are created but not packed yet. They will be shown after unpacking.
-        # self.canvas.pack(side="left", fill="both", expand=True)
-        # self.scrollbar.pack(side="right", fill="y")
-
-        # --- Mouse Wheel Scrolling ---
-        def _on_mousewheel(event):
-            # Determine scroll direction and magnitude
-            if sys.platform == "win32":
-                delta = -1 * (event.delta // 120)
-            elif sys.platform == "darwin": # macOS
-                delta = event.delta
-            else: # Linux
-                if event.num == 4:
-                    delta = -1
-                else:
-                    delta = 1
-            self.canvas.yview_scroll(delta, "units")
-
-        self.canvas.bind_all("<MouseWheel>", _on_mousewheel) # Windows/macOS
-        self.canvas.bind_all("<Button-4>", _on_mousewheel)   # Linux scroll up
-        self.canvas.bind_all("<Button-5>", _on_mousewheel)   # Linux scroll down
+        # Create a scroll area
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setVisible(False)
+        scroll_widget = QWidget()
+        self.scroll_area.setWidget(scroll_widget)
+        self.scroll_layout = QVBoxLayout(scroll_widget)
+        convert_outer_layout.addWidget(self.scroll_area)
 
         # Create track selection widgets
-        self.stage_music_frame = ttk.Frame(scrollable_frame)
-        self.stage_music_frame.pack(fill=tk.X)
+        self.stage_music_frame = QWidget()
+        stage_layout = QVBoxLayout(self.stage_music_frame)
+        stage_layout.setContentsMargins(0,0,0,0)
+        self.scroll_layout.addWidget(self.stage_music_frame)
 
-        self.intro_frame, self.intro_widgets = self._create_track_selector(self.stage_music_frame, "Intro Music", self.intro_wav_path, self.select_intro_wav, self.intro_loops_var, self.intro_loop_start_var, self.intro_loop_end_var)
-        ttk.Separator(self.stage_music_frame, orient='horizontal').pack(fill='x', pady=10)
-        self.lap1_frame, self.lap1_widgets = self._create_track_selector(self.stage_music_frame, "Lap 1 Music", self.lap1_wav_path, self.select_lap1_wav, self.lap1_loops_var, self.lap1_loop_start_var, self.lap1_loop_end_var)
-        ttk.Separator(self.stage_music_frame, orient='horizontal').pack(fill='x', pady=10)
-        self.final_lap_frame, self.final_lap_widgets = self._create_track_selector(self.stage_music_frame, "Final Lap Music", self.final_lap_wav_path, self.select_final_lap_wav, self.final_lap_loops_var, self.final_lap_loop_start_var, self.final_lap_loop_end_var)
+        self.intro_track_vars = self._create_track_selector(stage_layout, "Intro Music")
+        stage_layout.addWidget(self._create_separator())
+        self.lap1_track_vars = self._create_track_selector(stage_layout, "Lap 1 Music")
+        stage_layout.addWidget(self._create_separator())
+        self.final_lap_track_vars = self._create_track_selector(stage_layout, "Final Lap Music")
 
         # --- New Menu Music Frame ---
-        self.menu_music_frame = ttk.Frame(scrollable_frame)
-        # Don't pack it yet, will be managed in set_acb_file
+        self.menu_music_frame = QWidget()
+        menu_layout = QVBoxLayout(self.menu_music_frame)
+        menu_layout.setContentsMargins(0,0,0,0)
+        self.scroll_layout.addWidget(self.menu_music_frame)
 
         for label, hca_name in MENU_BGM_TRACKS.items():
-            path_var = tk.StringVar()
-            loop_var = tk.BooleanVar()
-            start_var = tk.StringVar()
-            end_var = tk.StringVar()
-            self.menu_track_vars[hca_name] = {'path': path_var, 'loop': loop_var, 'start': start_var, 'end': end_var}
-            frame, _ = self._create_track_selector(self.menu_music_frame, label, path_var, lambda p=path_var: self._select_wav_file(p), loop_var, start_var, end_var)
-            ttk.Separator(self.menu_music_frame, orient='horizontal').pack(fill='x', pady=5, after=frame)
+            self.menu_track_vars[hca_name] = self._create_track_selector(menu_layout, label)
+            if hca_name != list(MENU_BGM_TRACKS.values())[-1]:
+                menu_layout.addWidget(self._create_separator())
 
         # --- New Voice Line Frame (for VOICE_CRE) ---
-        self.voice_cre_frame = ttk.Frame(scrollable_frame)
-        # Don't pack it yet, will be managed in set_acb_file
+        self.voice_cre_frame = QWidget()
+        voice_layout = QVBoxLayout(self.voice_cre_frame)
+        voice_layout.setContentsMargins(0,0,0,0)
+        self.scroll_layout.addWidget(self.voice_cre_frame)
 
         for label, hca_name in VOICE_CRE_TRACKS.items():
-            path_var = tk.StringVar()
-            loop_var = tk.BooleanVar()
-            start_var = tk.StringVar()
-            end_var = tk.StringVar()
-            self.voice_cre_track_vars[hca_name] = {'path': path_var, 'loop': loop_var, 'start': start_var, 'end': end_var}
-            frame, _ = self._create_track_selector(self.voice_cre_frame, label, path_var, lambda p=path_var: self._select_wav_file(p), loop_var, start_var, end_var)
-            ttk.Separator(self.voice_cre_frame, orient='horizontal').pack(fill='x', pady=5, after=frame)
+            self.voice_cre_track_vars[hca_name] = self._create_track_selector(voice_layout, label)
+            if hca_name != list(VOICE_CRE_TRACKS.values())[-1]:
+                voice_layout.addWidget(self._create_separator())
+
+        self.scroll_layout.addStretch()
+
         # Convert button is outside the scrollable area
-        self.convert_button = ttk.Button(convert_outer_frame, text="Convert Selected Audio", command=self.convert_audio, state=tk.DISABLED)
-        # self.convert_button.pack(pady=10) # Packed later
+        self.convert_button = QPushButton("Convert Selected Audio")
+        self.convert_button.clicked.connect(self.convert_audio)
+        self.convert_button.setEnabled(False)
+        self.convert_button.setVisible(False)
+        convert_outer_layout.addWidget(self.convert_button, 0, Qt.AlignmentFlag.AlignCenter)
 
         # --- Step 3: Repack (formerly Step 4) ---
-        repack_frame = ttk.LabelFrame(parent, text="Step 3: Repack & Create Mod", padding="10")
-        repack_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=5)
-        repack_frame.columnconfigure(1, weight=1)
+        repack_group = QGroupBox("Step 3: Repack & Create Mod")
+        main_layout.addWidget(repack_group)
+        repack_layout = QVBoxLayout(repack_group)
 
-        self.repack_button = ttk.Button(repack_frame, text="Repack ACB", command=self.repack_acb, state=tk.DISABLED)
-        self.repack_button.grid(row=0, column=0, padx=5, pady=5)
+        self.repack_button = QPushButton("Repack ACB")
+        self.repack_button.clicked.connect(self.repack_acb)
+        self.repack_button.setEnabled(False)
+        repack_layout.addWidget(self.repack_button)
 
-        ttk.Label(repack_frame, text="Mod Name:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
-        ttk.Entry(repack_frame, textvariable=self.mod_name).grid(row=1, column=1, sticky=tk.EW, padx=5)
-        self.pak_button = ttk.Button(repack_frame, text="Create .pak", command=self.create_pak, state=tk.DISABLED)
-        self.pak_button.grid(row=1, column=2, padx=(5,0))
+        mod_name_layout = QHBoxLayout()
+        mod_name_layout.addWidget(QLabel("Mod Name:"))
+        self.mod_name_edit = QLineEdit(self._mod_name)
+        self.mod_name_edit.textChanged.connect(lambda text: setattr(self, '_mod_name', text))
+        mod_name_layout.addWidget(self.mod_name_edit)
+        self.pak_button = QPushButton("Create .pak")
+        self.pak_button.clicked.connect(self.create_pak)
+        self.pak_button.setEnabled(False)
+        mod_name_layout.addWidget(self.pak_button)
+        self.show_pak_button = QPushButton("Show Pak Output")
+        self.show_pak_button.clicked.connect(self.show_pak_output)
+        mod_name_layout.addWidget(self.show_pak_button)
+        repack_layout.addLayout(mod_name_layout)
 
-        self.show_pak_button = ttk.Button(repack_frame, text="Show Pak Output", command=self.show_pak_output)
-        self.show_pak_button.grid(row=1, column=3, padx=(5,5))
-    def _create_track_selector(self, parent, label_text, path_var, command, loop_var, loop_start_var, loop_end_var):
+    def _create_separator(self):
+        line = QFrame()
+        line.setFrameShape(QFrame.Shape.HLine)
+        line.setFrameShadow(QFrame.Shadow.Sunken)
+        return line
+
+    def _create_track_selector(self, parent_layout, label_text):
         """Helper to create a file selection and loop point widget group."""
-        frame = ttk.Frame(parent)
-        frame.pack(fill=tk.X, padx=5, pady=5)
-        frame.columnconfigure(1, weight=1)
+        frame = QWidget()
+        layout = QVBoxLayout(frame)
+        layout.setContentsMargins(0,0,0,0)
 
-        ttk.Label(frame, text=label_text).grid(row=0, column=0, sticky=tk.W)
-        ttk.Entry(frame, textvariable=path_var, state='readonly').grid(row=0, column=1, sticky=tk.EW, padx=5)
-        ttk.Button(frame, text="Browse...", command=command).grid(row=0, column=2)
+        browse_layout = QHBoxLayout()
+        browse_layout.addWidget(QLabel(label_text))
+        path_edit = QLineEdit()
+        path_edit.setReadOnly(True)
+        browse_layout.addWidget(path_edit)
+        browse_button = QPushButton("Browse...")
+        browse_layout.addWidget(browse_button)
+        layout.addLayout(browse_layout)
 
-        loop_frame = ttk.Frame(frame)
-        loop_frame.grid(row=1, column=1, columnspan=2, sticky=tk.EW, padx=5)
-        loop_frame.columnconfigure(1, weight=1)
-        loop_frame.columnconfigure(3, weight=1)
+        loop_group = QGroupBox("Loop Points (samples)")
+        loop_group.setCheckable(True)
+        loop_group.setChecked(False)
+        loop_layout = QHBoxLayout(loop_group)
+        loop_layout.addWidget(QLabel("Start:"))
+        loop_start_edit = QLineEdit()
+        loop_layout.addWidget(loop_start_edit)
+        loop_layout.addWidget(QLabel("End:"))
+        loop_end_edit = QLineEdit()
+        loop_layout.addWidget(loop_end_edit)
+        layout.addWidget(loop_group)
 
-        ttk.Checkbutton(loop_frame, text="Add Loop Points (samples)", variable=loop_var, command=lambda: self._toggle_loop_widgets(loop_frame, loop_var)).grid(row=0, column=0, columnspan=4, sticky=tk.W)
-        ttk.Label(loop_frame, text="Start:").grid(row=1, column=0, sticky=tk.W, padx=(15, 0))
-        ttk.Entry(loop_frame, textvariable=loop_start_var).grid(row=1, column=1, sticky=tk.EW, padx=5)
-        ttk.Label(loop_frame, text="End:").grid(row=1, column=2, sticky=tk.W)
-        ttk.Entry(loop_frame, textvariable=loop_end_var).grid(row=1, column=3, sticky=tk.EW, padx=5)
-        return frame, loop_frame
+        parent_layout.addWidget(frame)
 
-    def _toggle_loop_widgets(self, loop_frame, loop_var):
-        state = tk.NORMAL if loop_var.get() else tk.DISABLED
-        for widget in loop_frame.winfo_children():
-            if not isinstance(widget, ttk.Checkbutton):
-                widget.config(state=state)
+        var_dict = {
+            'path': path_edit,
+            'loop': loop_group,
+            'start': loop_start_edit,
+            'end': loop_end_edit
+        }
+
+        browse_button.clicked.connect(lambda: self._select_wav_file(path_edit))
+        return var_dict
 
     def check_tools(self):
         missing_tools = []
@@ -565,39 +585,36 @@ class ModBuilderGUI(tk.Tk):
                 missing_tools.append(str(tool))
         
         if missing_tools:
-            messagebox.showerror("Tools Missing", f"The following tools were not found:\n\n" + "\n".join(missing_tools) + "\n\nPlease ensure the 'tools' folder is correctly set up next to the script.")
-            self.destroy()
+            QMessageBox.critical(self, "Tools Missing", f"The following tools were not found:\n\n" + "\n".join(missing_tools) + "\n\nPlease ensure the 'tools' folder is correctly set up next to the script.")
+            self.close()
         
         # Hide loop widgets on startup
-        self.intro_loops_var.set(False); self._toggle_loop_widgets(self.intro_widgets, self.intro_loops_var)
-        self.lap1_loops_var.set(False); self._toggle_loop_widgets(self.lap1_widgets, self.lap1_loops_var)
-        self.final_lap_loops_var.set(False); self._toggle_loop_widgets(self.final_lap_widgets, self.final_lap_loops_var)
-        
-        # This is tricky. The widgets are already created. We need to find them again to disable them.
-        # We'll rely on the order they were created in the menu_music_frame.
-        # The children are [frame, separator, frame, separator, ...]. We want the frames.
-        menu_frames = [child for child in self.menu_music_frame.winfo_children() if isinstance(child, ttk.Frame)]
+        self.intro_track_vars['loop'].setChecked(False)
+        self.lap1_track_vars['loop'].setChecked(False)
+        self.final_lap_track_vars['loop'].setChecked(False)
+
         for hca_name, var_dict in self.menu_track_vars.items():
-            # Find the corresponding loop_frame inside the main frame for this track
-            # This is fragile, but it's the simplest way without a big refactor.
-            loop_frame = [child for child in menu_frames.pop(0).winfo_children() if isinstance(child, ttk.Frame)][0]
-            var_dict['loop'].set(False)
-            self._toggle_loop_widgets(loop_frame, var_dict['loop'])
-        voice_frames = [child for child in self.voice_cre_frame.winfo_children() if isinstance(child, ttk.Frame)]
+            var_dict['loop'].setChecked(False)
         for hca_name, var_dict in self.voice_cre_track_vars.items():
-            loop_frame = [child for child in voice_frames.pop(0).winfo_children() if isinstance(child, ttk.Frame)][0]
-            var_dict['loop'].set(False)
-            self._toggle_loop_widgets(loop_frame, var_dict['loop'])
+            var_dict['loop'].setChecked(False)
 
-
-    def run_command_threaded(self, target_func, on_complete, args=(), kwargs=None):
+    def run_command_threaded(self, target_func, on_complete, on_error, args=(), kwargs=None):
         """Runs a command in a separate thread to avoid freezing the GUI."""
-        self.queue = queue.Queue()
         if kwargs is None:
             kwargs = {}
-        task = ThreadedTask(self.queue, target_func, *args, **kwargs)
-        task.start()
-        self.after(100, self.process_queue, on_complete)
+        self.thread = QThread()
+        self.worker = Worker(target_func, *args, **kwargs)
+        self.worker.moveToThread(self.thread)
+
+        self.thread.started.connect(self.worker.run)
+        self.worker.finished.connect(on_complete)
+        self.worker.error.connect(on_error)
+
+        self.worker.finished.connect(self.thread.quit)
+        self.worker.finished.connect(self.worker.deleteLater)
+        self.thread.finished.connect(self.thread.deleteLater)
+
+        self.thread.start()
 
     def _execute_command(self, command, shell, cwd):
         """The actual command execution logic for the thread."""
@@ -625,151 +642,129 @@ class ModBuilderGUI(tk.Tk):
             error_message = f"An error occurred while running:\n{' '.join(command)}\n\nThe tool may have failed. Exit code: {e.returncode}"
             raise RuntimeError(error_message) from e
 
-    def process_queue(self, on_complete):
-        """Checks the queue for results from the thread."""
-        try:
-            msg_type, message = self.queue.get_nowait()
-            if msg_type == 'error':
-                self.status_var.set(f"Error! Check console for details.")
-                messagebox.showerror("Execution Error", str(message))
-                self.reset_ui_state()
-            elif msg_type == 'success':
-                on_complete(message)
-        except queue.Empty:
-            self.after(100, self.process_queue, on_complete)
+    def on_command_error(self, error):
+        self.status_bar.showMessage("Error! Check console for details.")
+        QMessageBox.critical(self, "Execution Error", str(error))
+        self.reset_ui_state()
 
     def reset_ui_state(self):
         """Resets buttons to an interactive state after an operation."""
-        self.status_var.set("Ready.")
-        self.unpack_button.config(state=tk.NORMAL if self.acb_file.get() else tk.DISABLED)
-        self.convert_button.config(state=tk.NORMAL if self.unpacked_folder.get() else tk.DISABLED)
-        self.repack_button.config(state=tk.NORMAL if self.unpacked_folder.get() else tk.DISABLED)
-        self.pak_button.config(state=tk.NORMAL if self.unpacked_folder.get() else tk.DISABLED)
+        self.status_bar.showMessage("Ready.")
+        self.unpack_button.setEnabled(bool(self._acb_file))
+        self.convert_button.setEnabled(bool(self._unpacked_folder))
+        self.repack_button.setEnabled(bool(self._unpacked_folder))
+        self.pak_button.setEnabled(bool(self._unpacked_folder))
 
-    def _select_wav_file(self, path_var):
-        filepath = filedialog.askopenfilename(
-            title="Select WAV file",
-            filetypes=[("WAV files", "*.wav"), ("All files", "*.*")]
+    def _select_wav_file(self, path_edit):
+        filepath, _ = QFileDialog.getOpenFileName(
+            self,
+            caption="Select WAV file",
+            filter="WAV files (*.wav);;All files (*.*)",
         )
         if filepath:
-            path_var.set(filepath)
-
-    def select_intro_wav(self): self._select_wav_file(self.intro_wav_path)
-    def select_lap1_wav(self): self._select_wav_file(self.lap1_wav_path)
-    def select_final_lap_wav(self): self._select_wav_file(self.final_lap_wav_path)
+            path_edit.setText(filepath)
 
     def select_common_bgm(self):
         selector = BGMSelectorWindow(self)
-        self.wait_window(selector) # Wait for the BGM selector to close
-        
-        acb_filename = selector.result
-        if not acb_filename:
-            return
+        if selector.exec():
+            acb_filename = selector.result
+            if not acb_filename:
+                return
 
-        # Instruct the user to find the file they extracted.
-        filepath = filedialog.askopenfilename(
-            title=f"Locate {acb_filename} (extracted with FModel)",
-            initialfile=acb_filename,
-            filetypes=[("ACB files", f"*{acb_filename}"), ("All files", "*.*")]
-        )
+            # Instruct the user to find the file they extracted.
+            filepath, _ = QFileDialog.getOpenFileName(
+                self,
+                caption=f"Locate {acb_filename} (extracted with FModel)",
+                filter=f"ACB files (*{acb_filename});;All files (*.*)",
+                dir=str(Path.cwd())
+            )
 
-        if filepath:
-            self.set_acb_file(filepath)
-
-
-    def select_acb_manual(self):
-        filepath = filedialog.askopenfilename(
-            title="Select .acb file",
-            filetypes=[("ACB files", "*.acb"), ("All files", "*.*")]
-        )
-        if filepath:
-            self.set_acb_file(filepath)
+            if filepath:
+                self.set_acb_file(filepath)
 
     def set_acb_file(self, filepath):
         """Central function to set the ACB file and reset the UI state."""
-        self.acb_file.set(filepath)
-        self.unpack_button.config(state=tk.NORMAL)
+        self._acb_file = filepath
+        self.acb_file_edit.setText(filepath)
+        self.unpack_button.setEnabled(True)
         
         # Reset subsequent steps
-        self.unpacked_folder.set("")
-        self.convert_button.config(state=tk.DISABLED) # Will be enabled on unpack
-        self.intro_wav_path.set('')
-        self.lap1_wav_path.set('')
-        self.final_lap_wav_path.set('')
-        self.intro_loops_var.set(False); self.lap1_loops_var.set(False); self.final_lap_loops_var.set(False)
+        self._unpacked_folder = ""
+        self.convert_button.setEnabled(False)
+
+        self.intro_track_vars['path'].setText('')
+        self.lap1_track_vars['path'].setText('')
+        self.final_lap_track_vars['path'].setText('')
+        self.intro_track_vars['loop'].setChecked(False)
+        self.lap1_track_vars['loop'].setChecked(False)
+        self.final_lap_track_vars['loop'].setChecked(False)
 
         # Hide conversion options and show the placeholder text
-        self.stage_music_frame.pack_forget()
-        self.menu_music_frame.pack_forget()
-        self.voice_cre_frame.pack_forget()
-        self.canvas.pack_forget()
-        self.scrollbar.pack_forget()
-        self.convert_button.pack_forget()
-        self.unpack_first_label.pack(expand=True)
+        self.stage_music_frame.setVisible(False)
+        self.menu_music_frame.setVisible(False)
+        self.voice_cre_frame.setVisible(False)
+        self.scroll_area.setVisible(False)
+        self.convert_button.setVisible(False)
+        self.unpack_first_label.setVisible(True)
 
-        self._toggle_loop_widgets(self.intro_widgets, self.intro_loops_var)
-        self._toggle_loop_widgets(self.lap1_widgets, self.lap1_loops_var)
-        self._toggle_loop_widgets(self.final_lap_widgets, self.final_lap_loops_var)
         for var_dict in self.menu_track_vars.values():
-            var_dict['path'].set('')
-            var_dict['loop'].set(False)
-            # Loop widgets are toggled off during check_tools init
+            var_dict['path'].setText('')
+            var_dict['loop'].setChecked(False)
         for var_dict in self.voice_cre_track_vars.values():
-            var_dict['path'].set('')
-            var_dict['loop'].set(False)
+            var_dict['path'].setText('')
+            var_dict['loop'].setChecked(False)
 
-        self.repack_button.config(state=tk.DISABLED)
-        self.pak_button.config(state=tk.DISABLED)
+        self.repack_button.setEnabled(False)
+        self.pak_button.setEnabled(False)
 
         # Show/hide widgets based on filename
         acb_path = Path(filepath)
         if acb_path.stem == "BGM":
-            self.menu_music_frame.pack(fill=tk.X)
+            self.menu_music_frame.setVisible(True)
         elif acb_path.stem == "VOICE_CRE":
-            self.voice_cre_frame.pack(fill=tk.X)
+            self.voice_cre_frame.setVisible(True)
         else:
-            self.stage_music_frame.pack(fill=tk.X)
+            self.stage_music_frame.setVisible(True)
             if acb_path.stem.startswith("BGM_STG2"):
-                self.intro_frame.pack_forget()
+                self.intro_track_vars['path'].parent().setVisible(False)
             else:
-                self.intro_frame.pack(fill=tk.X, padx=5, pady=5)
+                self.intro_track_vars['path'].parent().setVisible(True)
 
     def unpack_acb(self):
-        acb_path = Path(self.acb_file.get())
+        acb_path = Path(self._acb_file)
         unpacked_path = acb_path.parent / acb_path.stem
-        self.unpacked_folder.set(str(unpacked_path))
+        self._unpacked_folder = str(unpacked_path)
         print(f"--- Step 1: Unpacking '{acb_path.name}' ---")
-        self.status_var.set(f"Unpacking '{acb_path.name}'...")
-        self.unpack_button.config(state=tk.DISABLED)
-        self.run_command_threaded(self._execute_command, self.on_unpack_complete, args=([str(ACB_EDITOR), str(acb_path)], False), kwargs={'cwd': None})
+        self.status_bar.showMessage(f"Unpacking '{acb_path.name}'...")
+        self.unpack_button.setEnabled(False)
+        self.run_command_threaded(self._execute_command, self.on_unpack_complete, self.on_command_error, args=([str(ACB_EDITOR), str(acb_path)], False), kwargs={'cwd': None})
 
     def on_unpack_complete(self, result):
         print("Unpacking complete.")
-        self.status_var.set("Unpacking complete. Ready for audio conversion.")
-        unpacked_path = Path(self.unpacked_folder.get())
+        self.status_bar.showMessage("Unpacking complete. Ready for audio conversion.")
+        unpacked_path = Path(self._unpacked_folder)
         if not unpacked_path.exists():
-            messagebox.showerror("Error", f"Failed to unpack. Folder '{unpacked_path.name}' was not created.")
+            QMessageBox.critical(self, "Error", f"Failed to unpack. Folder '{unpacked_path.name}' was not created.")
             self.reset_ui_state()
             return
         
         # Show the conversion options now that unpacking is done
-        self.unpack_first_label.pack_forget()
-        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        self.convert_button.pack(pady=10)
+        self.unpack_first_label.setVisible(False)
+        self.scroll_area.setVisible(True)
+        self.convert_button.setVisible(True)
 
-        messagebox.showinfo("Success", f"Unpacked to '{unpacked_path.name}'")
-        self.convert_button.config(state=tk.NORMAL)
-        self.repack_button.config(state=tk.NORMAL)
-        self.pak_button.config(state=tk.NORMAL)
+        QMessageBox.information(self, "Success", f"Unpacked to '{unpacked_path.name}'")
+        self.convert_button.setEnabled(True)
+        self.repack_button.setEnabled(True)
+        self.pak_button.setEnabled(True)
         self.populate_orig_listbox()
 
     def convert_audio(self):
         """New fully automated conversion process."""
-        acb_path = Path(self.acb_file.get())
+        acb_path = Path(self._acb_file)
         acb_name = acb_path.stem
         print(f"\n--- Step 2: Starting Conversion for '{acb_name}' ---")
-        self.status_var.set(f"Preparing to convert audio for '{acb_name}'...")
+        self.status_bar.showMessage(f"Preparing to convert audio for '{acb_name}'...")
         
         if OUTPUT_DIR.exists():
             import shutil
@@ -781,7 +776,7 @@ class ModBuilderGUI(tk.Tk):
             with open(CONVERT_BAT, 'r') as f:
                 lines = f.readlines()
         except FileNotFoundError:
-            messagebox.showerror("Error", f"Could not find '{CONVERT_BAT}'.")
+            QMessageBox.critical(self, "Error", f"Could not find '{CONVERT_BAT}'.")
             return
 
         print("Parsing Convert2UNION.bat...")
@@ -794,7 +789,7 @@ class ModBuilderGUI(tk.Tk):
                     break
         
         if not command_line or not command_line.lower().startswith("vgaudiocli.exe"):
-            messagebox.showerror("Error", f"Could not find a valid VGAudioCli command for '{acb_name}' in '{CONVERT_BAT}'.")
+            QMessageBox.critical(self, "Error", f"Could not find a valid VGAudioCli command for '{acb_name}' in '{CONVERT_BAT}'.")
             return
 
         # --- Prepare list of conversions to run ---
@@ -804,44 +799,44 @@ class ModBuilderGUI(tk.Tk):
 
         if is_menu_bgm:
             for hca_name, var_dict in self.menu_track_vars.items():
-                if var_dict['path'].get():
-                    tasks.append((hca_name, var_dict['path'], var_dict['loop'], var_dict['start'], var_dict['end']))
+                if var_dict['path'].text():
+                    tasks.append((hca_name, var_dict['path'].text(), var_dict['loop'].isChecked(), var_dict['start'].text(), var_dict['end'].text()))
         elif is_voice_cre:
             for hca_name, var_dict in self.voice_cre_track_vars.items():
-                if var_dict['path'].get():
-                    tasks.append((hca_name, var_dict['path'], var_dict['loop'], var_dict['start'], var_dict['end']))
+                if var_dict['path'].text():
+                    tasks.append((hca_name, var_dict['path'].text(), var_dict['loop'].isChecked(), var_dict['start'].text(), var_dict['end'].text()))
         else: # Stage music
-            if self.intro_wav_path.get():
-                tasks.append(("intro", self.intro_wav_path, self.intro_loops_var, self.intro_loop_start_var, self.intro_loop_end_var))
-            if self.lap1_wav_path.get():
-                tasks.append(("lap1", self.lap1_wav_path, self.lap1_loops_var, self.lap1_loop_start_var, self.lap1_loop_end_var))
-            if self.final_lap_wav_path.get():
-                tasks.append(("final_lap", self.final_lap_wav_path, self.final_lap_loops_var, self.final_lap_loop_start_var, self.final_lap_loop_end_var))
+            if self.intro_track_vars['path'].text():
+                tasks.append(("intro", self.intro_track_vars['path'].text(), self.intro_track_vars['loop'].isChecked(), self.intro_track_vars['start'].text(), self.intro_track_vars['end'].text()))
+            if self.lap1_track_vars['path'].text():
+                tasks.append(("lap1", self.lap1_track_vars['path'].text(), self.lap1_track_vars['loop'].isChecked(), self.lap1_track_vars['start'].text(), self.lap1_track_vars['end'].text()))
+            if self.final_lap_track_vars['path'].text():
+                tasks.append(("final_lap", self.final_lap_track_vars['path'].text(), self.final_lap_track_vars['loop'].isChecked(), self.final_lap_track_vars['start'].text(), self.final_lap_track_vars['end'].text()))
         
         print("The following files will be converted:")
-        for name, path_var, _, _, _ in tasks:
-            wav_path = Path(path_var.get())
+        for name, wav_path_str, _, _, _ in tasks:
+            wav_path = Path(wav_path_str)
             print(f"  - Source: '{wav_path.name}' -> Target: {name}.hca")
 
         if not tasks:
-            messagebox.showinfo("Nothing to Convert", "No WAV files were selected for conversion.")
+            QMessageBox.information(self, "Nothing to Convert", "No WAV files were selected for conversion.")
             return
 
         # --- Run conversions in a thread ---
-        self.convert_button.config(state=tk.DISABLED)
-        self.status_var.set("Converting audio files... this may take a moment.")
-        self.run_command_threaded(self._run_conversion_tasks, self.on_convert_complete, args=(tasks, command_line, str(TOOLS_DIR)))
+        self.convert_button.setEnabled(False)
+        self.status_bar.showMessage("Converting audio files... this may take a moment.")
+        self.run_command_threaded(self._run_conversion_tasks, self.on_convert_complete, self.on_command_error, args=(tasks, command_line, str(TOOLS_DIR)))
 
     def _run_conversion_tasks(self, tasks, base_command_line, cwd):
         """The actual conversion logic that runs in a thread."""
-        import shlex, shutil
+        import shutil
 
         # Create temporary input/output dirs inside the tools folder, as the batch script expects
         temp_input_dir = Path(cwd) / "input"
         temp_output_dir = Path(cwd) / "output"
 
-        for name, path_var, loop_var, start_var, end_var in tasks:
-            wav_path = Path(path_var.get())
+        for name, wav_path_str, has_loop, loop_start, loop_end in tasks:
+            wav_path = Path(wav_path_str)
             print(f"Converting '{wav_path.name}' for {name}...")
 
             # 1. Prepare temp directories
@@ -856,8 +851,8 @@ class ModBuilderGUI(tk.Tk):
             # 3. Build the command, but do NOT replace input/output placeholders
             command_parts = shlex.split(base_command_line)
 
-            if loop_var.get():
-                start, end = start_var.get().strip(), end_var.get().strip()
+            if has_loop:
+                start, end = loop_start.strip(), loop_end.strip()
                 if start and end:
                     command_parts.extend(['-l', f'{start}-{end}'])
                     print(f"  - with loop points: {start}-{end}")
@@ -880,69 +875,31 @@ class ModBuilderGUI(tk.Tk):
 
     def on_convert_complete(self, result):
         print("All conversions complete.")
-        self.status_var.set("Audio conversion complete. Ready to repack.")
-        messagebox.showinfo("Success", "Audio conversion complete!")
+        self.status_bar.showMessage("Audio conversion complete. Ready to repack.")
+        QMessageBox.information(self, "Success", "Audio conversion complete!")
         self.reset_ui_state()
 
     def populate_orig_listbox(self):
         """This function now just validates the original file structure."""
         self.original_files = []
-        unpacked_path = Path(self.unpacked_folder.get())
+        unpacked_path = Path(self._unpacked_folder)
         try:
             self.original_files = sorted([f.name for f in unpacked_path.iterdir() if f.suffix.lower() in ['.hca', '.adx']])
-            if Path(self.acb_file.get()).stem != "BGM" and len(self.original_files) < 5:
-                messagebox.showwarning("Unexpected File Structure", 
+            if Path(self._acb_file).stem != "BGM" and len(self.original_files) < 5:
+                QMessageBox.warning(self, "Unexpected File Structure", 
                     f"Warning: Found {len(self.original_files)} audio files, but expected at least 5.\n\n"
                     "The automatic replacement for Intro/Lap1/Final Lap might not work correctly.")
         except FileNotFoundError:
-            messagebox.showerror("Error", f"Could not find unpacked folder: {unpacked_path}")
+            QMessageBox.critical(self, "Error", f"Could not find unpacked folder: {unpacked_path}")
             self.original_files = []
-
-    def populate_new_listbox(self):
-        # This function is no longer needed as dropdowns are removed.
-        pass
-
-    def apply_replacements(self):
-        unpacked_path = Path(self.unpacked_folder.get())
-        if len(self.original_files) < 5:
-            messagebox.showerror("Error", "Cannot apply replacements: Not enough original files found in the unpacked folder.")
-            return False
-
-        # Build the replacement map based on combobox selections
-        if self.lap1_var.get():
-            self.replacement_map[self.original_files[0]] = self.lap1_var.get() # Lap 1
-            self.replacement_map[self.original_files[1]] = "lap1.hca" # Lap 1 intro
-        if self.final_lap_var.get():
-            self.replacement_map[self.original_files[2]] = self.final_lap_var.get() # Final Lap
-            self.replacement_map[self.original_files[3]] = "final_lap.hca" # Final Lap intro
-        if self.intro_var.get():
-            self.replacement_map[self.original_files[4]] = "intro.hca" # Intro
-
-        if not self.replacement_map:
-            messagebox.showinfo("No Changes", "No replacement tracks were selected. Nothing to apply.")
-            return True # This is not an error
-
-        files_replaced = 0
-        for original_file, new_file in self.replacement_map.items():
-            source_path = OUTPUT_DIR / new_file
-            dest_path = unpacked_path / original_file
-            if not source_path.exists():
-                messagebox.showerror("File Not Found", f"Could not find replacement file: {source_path}")
-                return False
-            import shutil
-            shutil.copy2(source_path, dest_path)
-            files_replaced += 1
-        
-        messagebox.showinfo("Success", f"{files_replaced} file(s) replaced successfully in the unpacked folder.")
-        return True
 
     def repack_acb(self):
         print("\n--- Applying Replacements ---")
-        self.status_var.set("Applying replacement audio files...")
-        unpacked_path = Path(self.unpacked_folder.get())
+        self.status_bar.showMessage("Applying replacement audio files...")
+        unpacked_path = Path(self._unpacked_folder)
         self.replacement_map = {}
 
-        acb_stem = Path(self.acb_file.get()).stem
+        acb_stem = Path(self._acb_file).stem
         is_menu_bgm = acb_stem == "BGM"
         is_voice_cre = acb_stem == "VOICE_CRE"
         is_crossworlds = acb_stem.startswith("BGM_STG2")
@@ -950,7 +907,7 @@ class ModBuilderGUI(tk.Tk):
         # --- Define Special Track Structures ---
         special_structures = {
             # Dodonpa Factory
-            "BGM_STG1026": {"lap1": 0, "lap1_intro": 1, "final_lap": 5, "final_lap_intro": None, "intro": 3},
+            "BGM_STG1026": {"lap1": 0, "lap1_intro": 1, "final_lap": 4, "final_lap_intro": 2, "intro": 3},
             # Mystic Jungle, Kronos Island
             "BGM_STG1025": {"intro": 0, "lap1": 1, "lap1_intro": 2, "final_lap": 3, "final_lap_intro": 4},
             "BGM_STG1035": {"intro": 0, "lap1": 1, "lap1_intro": 2, "final_lap": 3, "final_lap_intro": 4},
@@ -995,7 +952,7 @@ class ModBuilderGUI(tk.Tk):
 
         else: # Default logic for other stage tracks
             if len(self.original_files) < 5:
-                messagebox.showerror("Error", "Cannot apply replacements: Not enough original files found in the unpacked folder.")
+                QMessageBox.critical(self, "Error", "Cannot apply replacements: Not enough original files found in the unpacked folder.")
                 return
 
             if (OUTPUT_DIR / "lap1.hca").exists():
@@ -1013,7 +970,7 @@ class ModBuilderGUI(tk.Tk):
                     self.replacement_map[self.original_files[4]] = "intro.hca" # Intro
 
         if not self.replacement_map:
-            messagebox.showinfo("No Changes", "No converted tracks found in 'output' folder. Nothing to apply.")
+            QMessageBox.information(self, "No Changes", "No converted tracks found in 'output' folder. Nothing to apply.")
             return
 
         import shutil
@@ -1024,27 +981,27 @@ class ModBuilderGUI(tk.Tk):
             shutil.copy2(source_path, dest_path)
         
         print("All replacements applied.")
-        messagebox.showinfo("Success", f"{len(self.replacement_map)} file(s) replaced successfully in the unpacked folder.")
+        QMessageBox.information(self, "Success", f"{len(self.replacement_map)} file(s) replaced successfully in the unpacked folder.")
 
         print("\n--- Step 3: Repacking ACB ---")
-        self.status_var.set(f"Repacking '{unpacked_path.name}'...")
-        self.repack_button.config(state=tk.DISABLED)
-        self.run_command_threaded(self._execute_command, self.on_repack_complete, args=([str(ACB_EDITOR), str(unpacked_path)], False), kwargs={'cwd': None})
+        self.status_bar.showMessage(f"Repacking '{unpacked_path.name}'...")
+        self.repack_button.setEnabled(False)
+        self.run_command_threaded(self._execute_command, self.on_repack_complete, self.on_command_error, args=([str(ACB_EDITOR), str(unpacked_path)], False), kwargs={'cwd': None})
 
     def on_repack_complete(self, result):
         print("Repacking complete.")
-        self.status_var.set("ACB repacked successfully. Ready to create .pak file.")
-        messagebox.showinfo("Success", "ACB folder has been repacked!")
+        self.status_bar.showMessage("ACB repacked successfully. Ready to create .pak file.")
+        QMessageBox.information(self, "Success", "ACB folder has been repacked!")
         self.reset_ui_state()
 
     def create_pak(self):
-        mod_name_str = self.mod_name.get().strip()
+        mod_name_str = self._mod_name.strip()
         if not mod_name_str:
-            messagebox.showerror("Error", "Mod Name cannot be empty.")
+            QMessageBox.critical(self, "Error", "Mod Name cannot be empty.")
             return
 
         print(f"\n--- Step 4: Creating Mod Pak '{mod_name_str}.pak' ---")
-        self.status_var.set(f"Creating mod package '{mod_name_str}.pak'...")
+        self.status_bar.showMessage(f"Creating mod package '{mod_name_str}.pak'...")
         mod_root_folder = Path(mod_name_str)
         criware_folder = mod_root_folder / "UNION" / "Content" / "CriWareData"
 
@@ -1052,7 +1009,7 @@ class ModBuilderGUI(tk.Tk):
             os.makedirs(criware_folder, exist_ok=True)
 
             import shutil
-            acb_path = Path(self.acb_file.get())
+            acb_path = Path(self._acb_file)
             print(f"Copying '{acb_path.name}' to mod folder...")
             shutil.copy2(acb_path, criware_folder)
 
@@ -1061,32 +1018,30 @@ class ModBuilderGUI(tk.Tk):
                 print(f"Copying '{awb_file.name}' to mod folder...")
                 shutil.copy2(awb_file, criware_folder)
         except Exception as e:
-            messagebox.showerror("File Error", f"Error preparing files for packing: {e}")
+            QMessageBox.critical(self, "File Error", f"Error preparing files for packing: {e}")
             return
 
-        self.pak_button.config(state=tk.DISABLED)
-        self.run_command_threaded(self._execute_command, self.on_pak_complete, args=([str(UNREAL_PAK), str(mod_root_folder.resolve())], True), kwargs={'cwd': None})
+        self.pak_button.setEnabled(False)
+        self.run_command_threaded(self._execute_command, self.on_pak_complete, self.on_command_error, args=([str(UNREAL_PAK), str(mod_root_folder.resolve())], True), kwargs={'cwd': None})
 
     def on_pak_complete(self, result):
-        mod_name_str = self.mod_name.get().strip()
+        mod_name_str = self._mod_name.strip()
         print(f"Pak file creation complete.")
-        self.status_var.set(f"Mod '{mod_name_str}.pak' created successfully!")
+        self.status_bar.showMessage(f"Mod '{mod_name_str}.pak' created successfully!")
         pak_file = Path(mod_name_str).with_suffix('.pak')
-        messagebox.showinfo("Mod Creation Complete!", f"Successfully created mod package:\n{pak_file.resolve()}")
+        QMessageBox.information(self, "Mod Creation Complete!", f"Successfully created mod package:\n{pak_file.resolve()}")
         self.reset_ui_state()
 
     def show_pak_output(self):
         """Opens the script's directory where the .pak file is created."""
         output_dir = Path.cwd()
         try:
-            if sys.platform == "win32":
-                os.startfile(output_dir)
-            elif sys.platform == "darwin": # macOS
-                subprocess.run(["open", output_dir], check=True)
-            else: # Linux
-                subprocess.run(["xdg-open", output_dir], check=True)
+            # QDesktopServices.openUrl is more cross-platform
+            from PySide6.QtGui import QDesktopServices
+            from PySide6.QtCore import QUrl
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(output_dir)))
         except Exception as e:
-            messagebox.showerror("Error", f"Could not open output directory:\n{e}")
+            QMessageBox.critical(self, "Error", f"Could not open output directory:\n{e}")
 
     def show_credits(self):
         """Displays the credits window."""
@@ -1098,7 +1053,10 @@ class ModBuilderGUI(tk.Tk):
             "Special Thanks:\n"
             "Lycus - For Testing and Feedback\n"
         )
-        messagebox.showinfo("Credits", credits_text)
+        QMessageBox.information(self, "Credits", credits_text)
+
 if __name__ == "__main__":
-    app = ModBuilderGUI()
-    app.mainloop()
+    app = QApplication(sys.argv)
+    window = ModBuilderGUI()
+    window.show()
+    sys.exit(app.exec())
