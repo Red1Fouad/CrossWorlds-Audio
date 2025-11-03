@@ -46,16 +46,8 @@ class ModBuilderGUI(QMainWindow):
         self.setWindowTitle("CrossWorlds Music Mod Builder")
         self.resize(800, 750)
 
-        # Set application icon robustly
-        try:
-            # This works when running from a PyInstaller bundle
-            base_path = Path(sys._MEIPASS)
-        except Exception:
-            # This works when running as a script
-            base_path = Path(__file__).parent.resolve()
-        icon_path = base_path / "tools" / "ico.ico"
-        if icon_path.is_file():
-            self.setWindowIcon(QIcon(str(icon_path)))
+        # Set application icon
+        self.setWindowIcon(QIcon("tools/ico.ico"))
 
         self.thread = None
         self.worker = None
