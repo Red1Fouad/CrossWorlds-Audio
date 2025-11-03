@@ -282,17 +282,21 @@ class ModBuilderGUI(QMainWindow):
         self.voice_search_bar = None
         track_dict = {}
         is_voice_acb = acb_stem.startswith("VOICE_")
-
+        
         if is_voice_acb:
             track_dict_name = f"VOICE_{acb_stem.split('_')[1]}_TRACKS"
             track_dict = getattr(data, track_dict_name, {})
+        elif acb_stem == "SE_EXTND10_CHARA": # Miku - check this before SPECIAL_TRACK_MAP
+            track_dict = data.VOICE_EXTND10_CHARA_TRACKS
+            is_voice_acb = True # Treat her like a voice ACB for UI purposes
         elif acb_stem == "BGM_EXTND04": # Minecraft uses its own full dictionary
             track_dict = data.DLC_MINECRAFT_TRACKS
         elif acb_stem in data.SPECIAL_TRACK_MAP:
             track_dict = data.SPECIAL_TRACK_MAP[acb_stem]
 
+
         # Add search bar
-        if is_voice_acb:
+        if is_voice_acb: # This now includes Miku
             self.voice_search_bar = QLineEdit()
             self.voice_search_bar.setPlaceholderText("Search Voice Lines... (Ctrl+F)")
             self.voice_search_bar.textChanged.connect(self._filter_special_lines)
@@ -433,7 +437,7 @@ class ModBuilderGUI(QMainWindow):
         acb_path = Path(filepath)
         acb_stem = acb_path.stem
 
-        if acb_stem.startswith("VOICE_") or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04":
+        if acb_stem.startswith("VOICE_") or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_EXTND10_CHARA":
             self.special_track_frame.setVisible(True)
             self._populate_special_track_frame(acb_stem)
         else:
@@ -486,7 +490,7 @@ class ModBuilderGUI(QMainWindow):
 
         # --- Prepare list of conversions to run ---
         tasks = []
-        if acb_path.stem.startswith("VOICE_") or acb_path.stem in data.SPECIAL_TRACK_MAP or acb_path.stem == "BGM_EXTND04":
+        if acb_path.stem.startswith("VOICE_") or acb_path.stem in data.SPECIAL_TRACK_MAP or acb_path.stem == "BGM_EXTND04" or acb_path.stem == "SE_EXTND10_CHARA":
             for hca_name, var_dict in self.special_track_vars.items():
                 if var_dict['path'].text():
                     is_looping = var_dict.get('loop') and var_dict['loop'].isChecked()
@@ -548,7 +552,7 @@ class ModBuilderGUI(QMainWindow):
         replacement_map = {}
 
         acb_stem = Path(self._acb_file).stem
-        is_special_acb_for_onetoone = acb_stem.startswith("VOICE_") or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04"
+        is_special_acb_for_onetoone = acb_stem.startswith("VOICE_") or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_EXTND10_CHARA"
         is_crossworlds = acb_stem.startswith("BGM_STG2")
 
         # --- Define Special Track Structures ---
