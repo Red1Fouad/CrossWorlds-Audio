@@ -6,8 +6,8 @@ try:
     from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel,
                                    QLineEdit, QPushButton, QFileDialog, QMessageBox, QTreeWidget, QTreeWidgetItem,
                                    QScrollArea, QFrame, QMenuBar, QStatusBar)
-    from PySide6.QtCore import Qt, QThread, Signal, QObject
-    from PySide6.QtGui import QDesktopServices
+    from PySide6.QtCore import Qt, QThread, Signal, QObject, QTimer
+    from PySide6.QtGui import QDesktopServices, QShortcut, QKeySequence
     from PySide6.QtCore import QUrl
 except ImportError:
     print("Error: PySide6 module not found. Please install it using 'pip install PySide6'")
@@ -71,6 +71,7 @@ class ModBuilderGUI(QMainWindow):
         # --- New state vars for menu music ---
         self.menu_track_vars = {}
         self.voice_cre_track_vars = {}
+        self.voice_search_bar = None
 
         central_widget = QWidget() 
         self.setCentralWidget(central_widget)
@@ -86,6 +87,10 @@ class ModBuilderGUI(QMainWindow):
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
         self.status_bar.showMessage("Ready.")
+
+        # --- Shortcuts ---
+        self.search_shortcut = QShortcut(QKeySequence("Ctrl+F"), self)
+        self.search_shortcut.activated.connect(self.focus_search_bar)
 
     def _create_widgets(self, main_layout):
         # --- Step 1: Unpack ---
@@ -255,6 +260,10 @@ class ModBuilderGUI(QMainWindow):
         for hca_name, var_dict in self.voice_cre_track_vars.items():
             var_dict['loop'].setChecked(False)
 
+    def focus_search_bar(self):
+        if self.voice_search_bar and self.voice_search_bar.isVisible():
+            self.voice_search_bar.setFocus()
+
     def _clear_layout(self, layout):
         """Removes all widgets from a layout."""
         if layout is not None:
@@ -270,6 +279,14 @@ class ModBuilderGUI(QMainWindow):
         """Dynamically populates the voice frame with selectors for the given character."""
         self._clear_layout(self.voice_cre_frame.layout())
         self.voice_cre_track_vars.clear()
+        self.voice_search_bar = None
+
+        # Add search bar
+        search_layout = QHBoxLayout()
+        self.voice_search_bar = QLineEdit()
+        self.voice_search_bar.setPlaceholderText("Search Voice Lines... (Ctrl+F)")
+        self.voice_search_bar.textChanged.connect(self._filter_voice_lines)
+        self.voice_cre_frame.layout().addWidget(self.voice_search_bar)
 
         # Get the correct track dictionary from the data module
         track_dict_name = f"VOICE_{character_code}_TRACKS"
@@ -289,6 +306,28 @@ class ModBuilderGUI(QMainWindow):
         # Reset loop checks for the newly created widgets
         for var_dict in self.voice_cre_track_vars.values():
             var_dict['loop'].setChecked(False)
+
+    def _filter_voice_lines(self, text):
+        """Hides/shows voice line widgets based on the search text."""
+        search_text = text.lower()
+        layout = self.voice_cre_frame.layout()
+
+        # Iterate through all widgets in the layout
+        for i in range(layout.count()):
+            widget = layout.itemAt(i).widget()
+            if widget is None or widget == self.voice_search_bar:
+                continue
+
+            # Find the label within the widget
+            label = widget.findChild(QLabel)
+            if label:
+                is_match = search_text in label.text().lower()
+                widget.setVisible(is_match)
+                
+                # Also hide/show the separator that might be after it
+                next_item = layout.itemAt(i + 1)
+                if next_item and isinstance(next_item.widget(), QFrame):
+                    next_item.widget().setVisible(is_match)
 
     def run_command_threaded(self, target_func, on_complete, on_error, args=(), kwargs=None):
         """Runs a command in a separate thread to avoid freezing the GUI."""
