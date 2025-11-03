@@ -297,26 +297,128 @@ VOICE_CRE_TRACKS = {
     "230: Use Item Warp": "00229_streaming",
 }
 
-# --- Placeholder Dictionaries for Other Characters ---
-VOICE_SON_TRACKS = {}
-VOICE_TAI_TRACKS = {}
-VOICE_KNU_TRACKS = {}
-VOICE_AMY_TRACKS = {}
-VOICE_BIG_TRACKS = {}
-VOICE_SHA_TRACKS = {}
-VOICE_ROU_TRACKS = {}
-VOICE_OME_TRACKS = {}
-VOICE_SIL_TRACKS = {}
-VOICE_BLA_TRACKS = {}
-VOICE_VEC_TRACKS = {}
-VOICE_ESP_TRACKS = {}
-VOICE_CHA_TRACKS = {}
-VOICE_ZAV_TRACKS = {}
-VOICE_ZAZ_TRACKS = {}
-VOICE_EGG_TRACKS = {}
-VOICE_MET_TRACKS = {}
-VOICE_EGP_TRACKS = {}
-VOICE_SAG_TRACKS = {}
-VOICE_JET_TRACKS = {}
-VOICE_WAV_TRACKS = {}
-VOICE_STO_TRACKS = {}
+def _generate_voice_lines(speaker_code, stage_ids=[]):
+    """
+    Generates a dictionary of voice lines with a variable number of course comments.
+    The order of character interaction lines is generated dynamically based on the speaker.
+    """
+    # Create a combined map of all stage IDs to names
+    stage_name_map = {**BGM_DATA["Track Themes"], **BGM_DATA["Crossworlds"]}
+
+    # Full list of characters for interactions
+    all_characters = {
+        "AMY": "Amy", "BIG": "Big", "BLA": "Blaze", "CHA": "Charmy", "CRE": "Cream",
+        "EGG": "Eggman", "EGP": "Egg Pawn", "ESP": "Espio", "JET": "Jet", "KNU": "Knuckles",
+        "MET": "Metal Sonic", "OME": "Omega", "ROU": "Rouge", "SAG": "Sage", "SHA": "Shadow",
+        "SIL": "Silver", "SON": "Sonic", "STO": "Storm", "TAI": "Tails", "VEC": "Vector",
+        "WAV": "Wave", "ZAV": "Zavok", "ZAZ": "Zazz"
+    }
+
+    # Filter out the speaker from the interaction list and sort alphabetically by name
+    interaction_characters = {code: name for code, name in all_characters.items() if code != speaker_code}
+    sorted_interaction_chars = dict(sorted(interaction_characters.items(), key=lambda item: item[1]))
+
+    lines = {}
+    i = 0
+
+    # --- Section 1: Pre-Interaction Lines ---
+    pre_comment_labels = [
+        "Approach Rival", "Boost High 1", "Boost High 2", "Boost Low", "Boost Mid 1", "Boost Mid 2",
+        "Break Object", "Ceremony 1", "Ceremony 2", "Character Select", "Checkpoint", "Common Discontent",
+        "Common Elated", "Common Happy", "Common Incite", "Common Regretable", "Countdown 1", "Countdown 2",
+        "Countdown Festa 1", "Countdown Festa 2", "Countdown Finalround 1", "Countdown Finalround 2",
+        "Countdown Firstround", "Countdown Rankup"
+    ]
+    for label in pre_comment_labels:
+        lines[f"{i+1}: {label}"] = f"{i:05d}_streaming"
+        i += 1
+
+    # --- Section 2: Course Comments ---
+    generic_comment_labels_1 = ["Cold", "Fear", "Fun", "Hot", "Like", "Nostalgic"]
+    for label in generic_comment_labels_1:
+        lines[f"{i+1}: Course Comment {label}"] = f"{i:05d}_streaming"
+        i += 1
+
+    for stage_id in stage_ids:
+        stage_name = stage_name_map.get(stage_id, stage_id) # Fallback to ID if name not found
+        lines[f"{i+1}: Course Comment ({stage_name})"] = f"{i:05d}_streaming"
+        i += 1
+
+    lines[f"{i+1}: Course Comment Surprise"] = f"{i:05d}_streaming"
+    i += 1
+
+    # --- Section 3: Mid-section before character interactions ---
+    mid_section_labels = [
+        "Courseout 1", "Courseout 2", "Dodge Item 1", "Dodge Item 2", "Dropout", "Enter Gate 1", "Enter Gate 2",
+        "Enter Shortcut", "Fail Damage 1", "Fail Damage 2", "Fail Item Bodycut", "Fail Item Damage 1",
+        "Fail Item Damage 2", "Fail Item Monster"
+    ]
+    for label in mid_section_labels:
+        lines[f"{i+1}: {label}"] = f"{i:05d}_streaming"
+        i += 1
+
+    # --- Section 4: Dynamic Character Interactions ---
+    interaction_prefixes = [
+        "Fail Item To", "Hit Item To", "Ready Movie First To", "Ready Movie Last To"
+    ]
+    for prefix in interaction_prefixes:
+        for char_code, char_name in sorted_interaction_chars.items():
+            # Handle special cases for label generation
+            label_suffix = "Rival" if "Ready Movie" in prefix else ""
+            label_char_name = "Egg Pawn" if char_name == "Egg Pawn" else char_name
+            
+            label = f"{prefix} {label_char_name} {label_suffix}".strip()
+            lines[f"{i+1}: {label}"] = f"{i:05d}_streaming"
+            i += 1
+
+    # --- Section 5: Post-Interaction Lines ---
+    post_interaction_labels = [
+        "Fail Push 1", "Fail Push 2", "Fail Spin 1", "Fail Spin 2", "Fail Wall 1", "Fail Wall 2",
+        "First Race Movie Lose Rival", "First Race Movie Win Rival", "Get Item", "Get Item Common", "Get Machineparts",
+        "Ghost Lose", "Ghost Win", "Goal Common", "Goal High 1", "Goal High 2", "Goal Low 1", "Goal Low 2",
+        "Goal Middle 1", "Goal Middle 2", "Goal Top 1", "Goal Top 2", "Hit Item 1", "Hit Item 2",
+        "Introduce", "Is Approached Rival", "Is Overtaken Rival", "Keep Item",
+        "Last Race Movie Lose Rival", "Last Race Movie Win Rival", "Left 1", "Left 2", "Max Ring", "Newrecord",
+        "Overtake 1", "Overtake 2", "Overtake Rival", "Playerlevel Up", "Push 1", "Push 2", "Rankdown", "Rankup A",
+        "Rankup B", "Rankup C", "Rankup Common 1", "Rankup Common 2", "Rankup D", "Rankup Highest 1",
+        "Rankup Highest 2", "Rankup Legend", "Rankup Special", "Reaction Behind Player Rival",
+        "Reaction Select Gate Rival", "Reaction Top Player Rival", "Ready Movie Rival", "Result Movie Draw Rival", "Result Movie Lose Rival",
+        "Result Movie Win Rival", "Reverse", "Select Gate 1", "Select Gate 2", "Select Gate Rival", "Slipstream",
+        "Stamp 1", "Stamp 2", "Stamp 3", "Stamp 4", "Stamp 5", "Stamp 7", "Stamp 6; Stamp 8", "Startboost 1",
+        "Startboost 2", "Startboost 3", "Startboost 4", "Stunt First", "Stunt Second", "Stunt Third 1",
+        "Stunt Third 2", "Timetrial Highrank", "Timetrial Lowrank", "Use Item Attack 1", "Use Item Attack 2",
+        "Use Item Bodycut", "Use Item Bomb Max", "Use Item Boost 1", "Use Item Boost 2", "Use Item Darkchao",
+        "Use Item King", "Use Item Monster", "Use Item Put 1", "Use Item Put 2", "Use Item Ring", "Use Item Violetvoid",
+        "Use Item Warp"
+    ]
+    for label in post_interaction_labels:
+        lines[f"{i+1}: {label}"] = f"{i:05d}_streaming"
+        i += 1
+
+    return lines
+
+# --- Voice Line Dictionaries for All Characters ---
+
+VOICE_SON_TRACKS = _generate_voice_lines('SON', stage_ids=['1032', '1035', '1037', '2003', '2014', '2017'])
+VOICE_TAI_TRACKS = _generate_voice_lines('TAI', stage_ids=['1017', '1026', '1032', '1035', '2007', '2017'])
+VOICE_KNU_TRACKS = _generate_voice_lines('KNU', stage_ids=['1003', '1018', '1029', '1033', '2004', '2012'])
+VOICE_AMY_TRACKS = _generate_voice_lines('AMY', stage_ids=['1005', '1020', '1035', '1036', '2002', '2015'])
+VOICE_BIG_TRACKS = _generate_voice_lines('BIG', stage_ids=['1020', '1030', '2011'])
+VOICE_SHA_TRACKS = _generate_voice_lines('SHA', stage_ids=['1016', '1022', '1031', '1033', '1037', '2019'])
+VOICE_ROU_TRACKS = _generate_voice_lines('ROU', stage_ids=['1030', '2002', '2004'])
+VOICE_OME_TRACKS = _generate_voice_lines('OME', stage_ids=['1025', '1031', '2012'])
+VOICE_SIL_TRACKS = _generate_voice_lines('SIL', stage_ids=['1018', '1024', '2015'])
+VOICE_BLA_TRACKS = _generate_voice_lines('BLA', stage_ids=['1020', '1027', '2001'])
+VOICE_VEC_TRACKS = _generate_voice_lines('VEC', stage_ids=['1001', '1033', '2015'])
+VOICE_ESP_TRACKS = _generate_voice_lines('ESP', stage_ids=['1001', '1027', '1036'])
+VOICE_CHA_TRACKS = _generate_voice_lines('CHA', stage_ids=['1001', '1017', '2015'])
+VOICE_ZAV_TRACKS = _generate_voice_lines('ZAV', stage_ids=['2001', '2007', '2010'])
+VOICE_ZAZ_TRACKS = _generate_voice_lines('ZAZ', stage_ids=['2005', '2007', '2009'])
+VOICE_EGG_TRACKS = _generate_voice_lines('EGG', stage_ids=['1022', '1025', '1026', '1031', '2009', '2019'])
+VOICE_SAG_TRACKS = _generate_voice_lines('SAG', stage_ids=['1025', '1031', '2017'])
+VOICE_JET_TRACKS = _generate_voice_lines('JET', stage_ids=['1016', '1034', '2016'])
+VOICE_WAV_TRACKS = _generate_voice_lines('WAV', stage_ids=['1024', '1028', '2004'])
+VOICE_STO_TRACKS = _generate_voice_lines('STO', stage_ids=['1023', '2004', '2015'])
+VOICE_MET_TRACKS = _generate_voice_lines('MET', stage_ids=['Unused 1', 'Unused 2', 'Unused 3'])
+VOICE_EGP_TRACKS = _generate_voice_lines('EGP', stage_ids=['Unused 1', 'Unused 2', 'Unused 3'])
+VOICE_CRE_TRACKS = _generate_voice_lines('CRE', stage_ids=['1020', '1030', '2001'])
