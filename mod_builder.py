@@ -7,7 +7,7 @@ try:
                                    QLineEdit, QPushButton, QFileDialog, QMessageBox, QTreeWidget, QTreeWidgetItem,
                                    QScrollArea, QFrame, QMenuBar, QStatusBar)
     from PySide6.QtCore import Qt, QThread, Signal, QObject, QTimer
-    from PySide6.QtGui import QDesktopServices, QShortcut, QKeySequence
+    from PySide6.QtGui import QDesktopServices, QShortcut, QKeySequence, QIcon
     from PySide6.QtCore import QUrl
 except ImportError:
     print("Error: PySide6 module not found. Please install it using 'pip install PySide6'")
@@ -45,6 +45,17 @@ class ModBuilderGUI(QMainWindow):
         super().__init__()
         self.setWindowTitle("CrossWorlds Music Mod Builder")
         self.resize(800, 750)
+
+        # Set application icon robustly
+        try:
+            # This works when running from a PyInstaller bundle
+            base_path = Path(sys._MEIPASS)
+        except Exception:
+            # This works when running as a script
+            base_path = Path(__file__).parent.resolve()
+        icon_path = base_path / "tools" / "ico.ico"
+        if icon_path.is_file():
+            self.setWindowIcon(QIcon(str(icon_path)))
 
         self.thread = None
         self.worker = None
