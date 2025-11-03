@@ -455,3 +455,16 @@ VOICE_STO_TRACKS = _generate_voice_lines('STO', stage_ids=['1023', '2004', '2015
 VOICE_MET_TRACKS = _generate_voice_lines('MET', stage_ids=['Unused 1', 'Unused 2', 'Unused 3'])
 VOICE_EGP_TRACKS = _generate_voice_lines('EGP', stage_ids=['Unused 1', 'Unused 2', 'Unused 3'])
 VOICE_CRE_TRACKS = _generate_voice_lines('CRE', stage_ids=['1020', '1030', '2001'])
+
+# --- Helper for Friendly Name Lookup ---
+def _create_friendly_name_map():
+    """Creates a flat dictionary for easy lookup of friendly names from ACB stems."""
+    name_map = {}
+    name_map.update({f"BGM_STG{k}": v for k, v in BGM_DATA["Track Themes"].items()})
+    name_map.update({f"BGM_STG{k}": v for k, v in BGM_DATA["Crossworlds"].items()})
+    name_map.update({f"BGM_{k}": v for k, v in BGM_DATA["DLC Tracks"].items()})
+    name_map.update({f"VOICE_{k}": v for k, v in BGM_DATA["Voice Lines"].items()})
+    name_map.update({k: v for k, v in BGM_DATA["Menu & System"].items()})
+    return name_map
+
+FRIENDLY_NAME_MAP = _create_friendly_name_map()

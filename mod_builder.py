@@ -395,6 +395,13 @@ class ModBuilderGUI(QMainWindow):
         self.acb_file_edit.setText(filepath)
         self.unpack_button.setEnabled(True)
         
+        # Update window title with friendly name
+        acb_stem = Path(filepath).stem
+        friendly_name = data.FRIENDLY_NAME_MAP.get(acb_stem)
+        base_title = "CrossWorlds Music Mod Builder"
+        if friendly_name:
+            self.setWindowTitle(f"{base_title} - [{friendly_name}]")
+
         # Reset subsequent steps
         self._unpacked_folder = ""
         self.convert_button.setEnabled(False)
