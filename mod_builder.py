@@ -205,7 +205,7 @@ class ModBuilderGUI(QMainWindow):
         line.setFrameShadow(QFrame.Shadow.Sunken)
         return line
 
-    def _create_track_selector(self, parent_layout, label_text):
+    def _create_track_selector(self, parent_layout, label_text, show_loop_options=True):
         """Helper to create a file selection and loop point widget group."""
         frame = QWidget()
         layout = QVBoxLayout(frame)
@@ -220,26 +220,31 @@ class ModBuilderGUI(QMainWindow):
         browse_layout.addWidget(browse_button)
         layout.addLayout(browse_layout)
 
-        loop_group = QGroupBox("Loop Points (samples)")
-        loop_group.setCheckable(True)
-        loop_group.setChecked(False)
-        loop_layout = QHBoxLayout(loop_group)
-        loop_layout.addWidget(QLabel("Start:"))
-        loop_start_edit = QLineEdit()
-        loop_layout.addWidget(loop_start_edit)
-        loop_layout.addWidget(QLabel("End:"))
-        loop_end_edit = QLineEdit()
-        loop_layout.addWidget(loop_end_edit)
-        layout.addWidget(loop_group)
-
         parent_layout.addWidget(frame)
 
         var_dict = {
             'path': path_edit,
-            'loop': loop_group,
-            'start': loop_start_edit,
-            'end': loop_end_edit
+            'loop': None,
+            'start': None,
+            'end': None
         }
+
+        if show_loop_options:
+            loop_group = QGroupBox("Loop Points (samples)")
+            loop_group.setCheckable(True)
+            loop_group.setChecked(False)
+            loop_layout = QHBoxLayout(loop_group)
+            loop_layout.addWidget(QLabel("Start:"))
+            loop_start_edit = QLineEdit()
+            loop_layout.addWidget(loop_start_edit)
+            loop_layout.addWidget(QLabel("End:"))
+            loop_end_edit = QLineEdit()
+            loop_layout.addWidget(loop_end_edit)
+            layout.addWidget(loop_group)
+
+            var_dict['loop'] = loop_group
+            var_dict['start'] = loop_start_edit
+            var_dict['end'] = loop_end_edit
 
         browse_button.clicked.connect(lambda: self._select_wav_file(path_edit))
         return var_dict
@@ -299,13 +304,14 @@ class ModBuilderGUI(QMainWindow):
             return
 
         for label, hca_name in track_dict.items():
-            self.voice_cre_track_vars[hca_name] = self._create_track_selector(self.voice_cre_frame.layout(), label)
+            self.voice_cre_track_vars[hca_name] = self._create_track_selector(self.voice_cre_frame.layout(), label, show_loop_options=False)
             if hca_name != list(track_dict.values())[-1]:
                 self.voice_cre_frame.layout().addWidget(self._create_separator())
 
         # Reset loop checks for the newly created widgets
         for var_dict in self.voice_cre_track_vars.values():
-            var_dict['loop'].setChecked(False)
+            if var_dict.get('loop'):
+                var_dict['loop'].setChecked(False)
 
     def _filter_voice_lines(self, text):
         """Hides/shows voice line widgets based on the search text."""
@@ -415,9 +421,9 @@ class ModBuilderGUI(QMainWindow):
         for var_dict in self.menu_track_vars.values():
             var_dict['path'].setText('')
             var_dict['loop'].setChecked(False)
-        for var_dict in self.voice_cre_track_vars.values():
+        # Clear voice vars, they will be repopulated
+        for var_dict in list(self.voice_cre_track_vars.values()):
             var_dict['path'].setText('')
-            var_dict['loop'].setChecked(False)
 
         self.repack_button.setEnabled(False)
         self.pak_button.setEnabled(False)
@@ -483,7 +489,7 @@ class ModBuilderGUI(QMainWindow):
         elif is_voice_acb:
             for hca_name, var_dict in self.voice_cre_track_vars.items():
                 if var_dict['path'].text():
-                    tasks.append((hca_name, var_dict['path'].text(), var_dict['loop'].isChecked(), var_dict['start'].text(), var_dict['end'].text()))
+                    tasks.append((hca_name, var_dict['path'].text(), False, "", "")) # Always False for loops
         else: # Stage music
             if self.intro_track_vars['path'].text():
                 tasks.append(("intro", self.intro_track_vars['path'].text(), self.intro_track_vars['loop'].isChecked(), self.intro_track_vars['start'].text(), self.intro_track_vars['end'].text()))
