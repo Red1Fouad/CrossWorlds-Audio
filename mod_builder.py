@@ -490,7 +490,12 @@ class ModBuilderGUI(QMainWindow):
             for hca_name, var_dict in self.special_track_vars.items():
                 if var_dict['path'].text():
                     is_looping = var_dict.get('loop') and var_dict['loop'].isChecked()
-                    tasks.append((hca_name, var_dict['path'].text(), is_looping, var_dict.get('start', QLineEdit()).text(), var_dict.get('end', QLineEdit()).text()))
+                    start_widget = var_dict.get('start')
+                    end_widget = var_dict.get('end')
+                    start_text = start_widget.text() if start_widget else ""
+                    end_text = end_widget.text() if end_widget else ""
+
+                    tasks.append((hca_name, var_dict['path'].text(), is_looping, start_text, end_text))
         else: # Stage music
             if self.intro_track_vars['path'].text():
                 tasks.append(("intro", self.intro_track_vars['path'].text(), self.intro_track_vars['loop'].isChecked(), self.intro_track_vars['start'].text(), self.intro_track_vars['end'].text()))
