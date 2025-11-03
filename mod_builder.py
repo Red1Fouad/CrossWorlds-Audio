@@ -80,8 +80,7 @@ class ModBuilderGUI(QMainWindow):
         self.final_lap_track_vars = {}
 
         # --- New state vars for menu music ---
-        self.menu_track_vars = {}
-        self.voice_cre_track_vars = {}
+        self.special_track_vars = {}
         self.voice_search_bar = None
 
         central_widget = QWidget() 
@@ -159,21 +158,11 @@ class ModBuilderGUI(QMainWindow):
         self.final_lap_track_vars = self._create_track_selector(stage_layout, "Final Lap Music")
 
         # --- New Menu Music Frame ---
-        self.menu_music_frame = QWidget()
-        menu_layout = QVBoxLayout(self.menu_music_frame)
-        menu_layout.setContentsMargins(0,0,0,0)
-        self.scroll_layout.addWidget(self.menu_music_frame)
-
-        for label, hca_name in data.MENU_BGM_TRACKS.items():
-            self.menu_track_vars[hca_name] = self._create_track_selector(menu_layout, label)
-            if hca_name != list(data.MENU_BGM_TRACKS.values())[-1]:
-                menu_layout.addWidget(self._create_separator())
-
-        # --- Dynamic Voice Line Frame ---
-        self.voice_cre_frame = QWidget()
-        voice_layout = QVBoxLayout(self.voice_cre_frame)
-        voice_layout.setContentsMargins(0, 0, 0, 0)
-        self.scroll_layout.addWidget(self.voice_cre_frame)
+        # This single frame will be used for Menu, Voice, and DLC tracks
+        self.special_track_frame = QWidget()
+        special_track_layout = QVBoxLayout(self.special_track_frame)
+        special_track_layout.setContentsMargins(0, 0, 0, 0)
+        self.scroll_layout.addWidget(self.special_track_frame)
 
         # This frame will be populated dynamically in set_acb_file
 
@@ -271,11 +260,6 @@ class ModBuilderGUI(QMainWindow):
         self.lap1_track_vars['loop'].setChecked(False)
         self.final_lap_track_vars['loop'].setChecked(False)
 
-        for hca_name, var_dict in self.menu_track_vars.items():
-            var_dict['loop'].setChecked(False)
-        for hca_name, var_dict in self.voice_cre_track_vars.items():
-            var_dict['loop'].setChecked(False)
-
     def focus_search_bar(self):
         if self.voice_search_bar and self.voice_search_bar.isVisible():
             self.voice_search_bar.setFocus()
@@ -291,43 +275,45 @@ class ModBuilderGUI(QMainWindow):
                 else:
                     self._clear_layout(item.layout())
 
-    def _populate_voice_frame(self, character_code):
-        """Dynamically populates the voice frame with selectors for the given character."""
-        self._clear_layout(self.voice_cre_frame.layout())
-        self.voice_cre_track_vars.clear()
+    def _populate_special_track_frame(self, acb_stem):
+        """Dynamically populates the special tracks frame with the correct selectors."""
+        self._clear_layout(self.special_track_frame.layout())
+        self.special_track_vars.clear()
         self.voice_search_bar = None
+        track_dict = {}
+        is_voice_acb = acb_stem.startswith("VOICE_")
+
+        if is_voice_acb:
+            track_dict_name = f"VOICE_{acb_stem.split('_')[1]}_TRACKS"
+            track_dict = getattr(data, track_dict_name, {})
+        elif acb_stem == "BGM_EXTND04": # Minecraft uses its own full dictionary
+            track_dict = data.DLC_MINECRAFT_TRACKS
+        elif acb_stem in data.SPECIAL_TRACK_MAP:
+            track_dict = data.SPECIAL_TRACK_MAP[acb_stem]
 
         # Add search bar
-        search_layout = QHBoxLayout()
-        self.voice_search_bar = QLineEdit()
-        self.voice_search_bar.setPlaceholderText("Search Voice Lines... (Ctrl+F)")
-        self.voice_search_bar.textChanged.connect(self._filter_voice_lines)
-        self.voice_cre_frame.layout().addWidget(self.voice_search_bar)
-
-        # Get the correct track dictionary from the data module
-        track_dict_name = f"VOICE_{character_code}_TRACKS"
-        track_dict = getattr(data, track_dict_name, {})
+        if is_voice_acb:
+            self.voice_search_bar = QLineEdit()
+            self.voice_search_bar.setPlaceholderText("Search Voice Lines... (Ctrl+F)")
+            self.voice_search_bar.textChanged.connect(self._filter_special_lines)
+            self.special_track_frame.layout().addWidget(self.voice_search_bar)
 
         if not track_dict:
-            label = QLabel(f"No voice lines defined for {character_code} in data.py yet.")
+            label = QLabel(f"No track structure defined for {acb_stem} in data.py yet.")
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.voice_cre_frame.layout().addWidget(label)
+            self.special_track_frame.layout().addWidget(label)
             return
 
+        show_loops = not is_voice_acb # No loops for voice lines
         for label, hca_name in track_dict.items():
-            self.voice_cre_track_vars[hca_name] = self._create_track_selector(self.voice_cre_frame.layout(), label, show_loop_options=False)
+            self.special_track_vars[hca_name] = self._create_track_selector(self.special_track_frame.layout(), label, show_loop_options=show_loops)
             if hca_name != list(track_dict.values())[-1]:
-                self.voice_cre_frame.layout().addWidget(self._create_separator())
+                self.special_track_frame.layout().addWidget(self._create_separator())
 
-        # Reset loop checks for the newly created widgets
-        for var_dict in self.voice_cre_track_vars.values():
-            if var_dict.get('loop'):
-                var_dict['loop'].setChecked(False)
-
-    def _filter_voice_lines(self, text):
+    def _filter_special_lines(self, text):
         """Hides/shows voice line widgets based on the search text."""
         search_text = text.lower()
-        layout = self.voice_cre_frame.layout()
+        layout = self.special_track_frame.layout()
 
         # Iterate through all widgets in the layout
         for i in range(layout.count()):
@@ -335,7 +321,6 @@ class ModBuilderGUI(QMainWindow):
             if widget is None or widget == self.voice_search_bar:
                 continue
 
-            # Find the label within the widget
             label = widget.findChild(QLabel)
             if label:
                 is_match = search_text in label.text().lower()
@@ -423,36 +408,40 @@ class ModBuilderGUI(QMainWindow):
 
         # Hide conversion options and show the placeholder text
         self.stage_music_frame.setVisible(False)
-        self.menu_music_frame.setVisible(False)
-        self.voice_cre_frame.setVisible(False)
+        self.special_track_frame.setVisible(False)
         self.scroll_area.setVisible(False)
         self.convert_button.setVisible(False)
         self.unpack_first_label.setVisible(True)
 
-        for var_dict in self.menu_track_vars.values():
+        # Clear special track vars, they will be repopulated
+        for var_dict in list(self.special_track_vars.values()):
             var_dict['path'].setText('')
-            var_dict['loop'].setChecked(False)
-        # Clear voice vars, they will be repopulated
-        for var_dict in list(self.voice_cre_track_vars.values()):
-            var_dict['path'].setText('')
+            if var_dict.get('loop'):
+                var_dict['loop'].setChecked(False)
 
         self.repack_button.setEnabled(False)
         self.pak_button.setEnabled(False)
 
         # Show/hide widgets based on filename
         acb_path = Path(filepath)
-        if acb_path.stem == "BGM":
-            self.menu_music_frame.setVisible(True)
-        elif acb_path.stem.startswith("VOICE_"):
-            character_code = acb_path.stem.split('_')[1]
-            self.voice_cre_frame.setVisible(True)
-            self._populate_voice_frame(character_code)
+        acb_stem = acb_path.stem
+
+        if acb_stem.startswith("VOICE_") or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04":
+            self.special_track_frame.setVisible(True)
+            self._populate_special_track_frame(acb_stem)
         else:
             self.stage_music_frame.setVisible(True)
             if acb_path.stem.startswith("BGM_STG2"):
                 self.intro_track_vars['path'].parent().setVisible(False)
             else:
                 self.intro_track_vars['path'].parent().setVisible(True)
+    
+    def _get_original_file_index(self, hca_filename):
+        """Helper to find the 0-based index of a specific HCA filename in the sorted original_files list."""
+        try:
+            return self.original_files.index(hca_filename)
+        except ValueError:
+            return None # File not found in unpacked folder
 
     def unpack_acb(self):
         acb_path = Path(self._acb_file)
@@ -490,17 +479,11 @@ class ModBuilderGUI(QMainWindow):
 
         # --- Prepare list of conversions to run ---
         tasks = []
-        is_menu_bgm = acb_path.stem == "BGM"
-        is_voice_acb = acb_path.stem.startswith("VOICE_")
-
-        if is_menu_bgm:
-            for hca_name, var_dict in self.menu_track_vars.items():
+        if acb_path.stem.startswith("VOICE_") or acb_path.stem in data.SPECIAL_TRACK_MAP or acb_path.stem == "BGM_EXTND04":
+            for hca_name, var_dict in self.special_track_vars.items():
                 if var_dict['path'].text():
-                    tasks.append((hca_name, var_dict['path'].text(), var_dict['loop'].isChecked(), var_dict['start'].text(), var_dict['end'].text()))
-        elif is_voice_acb:
-            for hca_name, var_dict in self.voice_cre_track_vars.items():
-                if var_dict['path'].text():
-                    tasks.append((hca_name, var_dict['path'].text(), False, "", "")) # Always False for loops
+                    is_looping = var_dict.get('loop') and var_dict['loop'].isChecked()
+                    tasks.append((hca_name, var_dict['path'].text(), is_looping, var_dict.get('start', QLineEdit()).text(), var_dict.get('end', QLineEdit()).text()))
         else: # Stage music
             if self.intro_track_vars['path'].text():
                 tasks.append(("intro", self.intro_track_vars['path'].text(), self.intro_track_vars['loop'].isChecked(), self.intro_track_vars['start'].text(), self.intro_track_vars['end'].text()))
@@ -553,8 +536,7 @@ class ModBuilderGUI(QMainWindow):
         replacement_map = {}
 
         acb_stem = Path(self._acb_file).stem
-        is_menu_bgm = acb_stem == "BGM"
-        is_voice_acb = acb_stem.startswith("VOICE_")
+        is_special_acb_for_onetoone = acb_stem.startswith("VOICE_") or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04"
         is_crossworlds = acb_stem.startswith("BGM_STG2")
 
         # --- Define Special Track Structures ---
@@ -578,19 +560,23 @@ class ModBuilderGUI(QMainWindow):
         }
 
         # Build the replacement map based on converted files
-        if is_menu_bgm:
-            for hca_name, var_dict in self.menu_track_vars.items():
+        if is_special_acb_for_onetoone: # For Menu, Voice, and Spongebob (one-to-one mapping)
+            for hca_name, var_dict in self.special_track_vars.items():
                 converted_file = OUTPUT_DIR / f"{hca_name}.hca"
                 if converted_file.exists():
                     replacement_map[hca_name + ".hca"] = hca_name + ".hca"
-        elif is_voice_acb:
-            for hca_name, var_dict in self.voice_cre_track_vars.items():
-                converted_file = OUTPUT_DIR / f"{hca_name}.hca"
-                if converted_file.exists():
-                    replacement_map[hca_name + ".hca"] = hca_name + ".hca"
+            
+            # Handle implicit intros for SpongeBob
+            if acb_stem == "BGM_EXTND05":
+                # If the user provided a file for "Final Lap" (which is '00024_streaming')
+                final_lap_hca_name = "00024_streaming"
+                final_lap_intro_hca_name = "00025_streaming"
+                if (OUTPUT_DIR / f"{final_lap_hca_name}.hca").exists():
+                    replacement_map[f"{final_lap_intro_hca_name}.hca"] = f"{final_lap_hca_name}.hca"
+
         elif acb_stem in special_structures:
             print(f"Applying special structure for {acb_stem}...")
-            structure = special_structures[acb_stem]
+            structure = special_structures[acb_stem] # This structure contains either indices or hca_filenames
             
             if (OUTPUT_DIR / "lap1.hca").exists():
                 if structure["lap1"] is not None: replacement_map[self.original_files[structure["lap1"]]] = "lap1.hca"
@@ -636,7 +622,7 @@ class ModBuilderGUI(QMainWindow):
         print("\n--- Step 3: Repacking ACB ---")
         unpacked_path = Path(self._unpacked_folder)
         self.status_bar.showMessage(f"Repacking '{unpacked_path.name}'...")
-        self.repack_button.setEnabled(False)
+        self.repack_button.setEnabled(False) # Disable button during operation
         self.run_command_threaded(self.logic.repack_acb, self.on_repack_complete, self.on_command_error, args=(unpacked_path,))
 
     def on_repack_complete(self, result):

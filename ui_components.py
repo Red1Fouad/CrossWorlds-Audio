@@ -27,6 +27,8 @@ class BGMSelectorWindow(QDialog):
                     filename = "BGM.acb"
                 elif category == "Voice Lines":
                     filename = f"VOICE_{id_num}.acb"
+                elif category == "DLC Tracks":
+                    filename = f"BGM_{id_num}.acb"
                 else:
                     filename = f"BGM_STG{id_num}.acb"
                 

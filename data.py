@@ -21,6 +21,10 @@ BGM_DATA = {
         "2012": "Galactic Parade", "2014": "Dinosaur Jungle", "2015": "Sweet Mountain",
         "2016": "White Cave", "2017": "Cyber Space", "2019": "Digital Circuit",
     },
+    "DLC Tracks": {
+        "EXTND04": "Minecraft World",
+        "EXTND05": "BiKiNi Bottom",
+    },
     "Voice Lines": {
         "SON": "Sonic the Hedgehog",
         "TAI": "Miles 'Tails' Prower",
@@ -62,6 +66,35 @@ MENU_BGM_TRACKS = {
     "Lobby (Festival)": "00037_streaming",
     "CrossWorld Time Trial Intro": "00053_streaming",
     "Monster Truck": "00040_streaming",
+}
+
+DLC_SPONGEBOB_TRACKS = {
+    "Intro": "00026_streaming",
+    "Lap 1": "00023_streaming",
+    "Final Lap": "00024_streaming",
+    "Character Select": "00022_streaming",
+    "Results": "00027_streaming",
+    "Finish Jingle": "00028_streaming",
+}
+
+# Minecraft is handled separately now as a special case in the UI/repacking logic
+DLC_MINECRAFT_TRACKS = {
+    "Intro": "00034_streaming",
+    "Overworld (Lap 1)": "00024_streaming",
+    "Overworld (Out of Nether - Lap 1)": "00026_streaming",
+    "The Nether (Lap 1)": "00027_streaming",
+    "Overworld (Final Lap)": "00029_streaming",
+    "Overworld (Out of The End - Final Lap)": "00031_streaming",
+    "The End (Final Lap)": "00032_streaming",
+    "Character Select": "00035_streaming",
+    "Results": "00036_streaming",
+    "Finish Jingle": "00042_streaming",
+}
+
+# A map to easily get the correct dictionary for a given ACB stem
+SPECIAL_TRACK_MAP = {
+    "BGM": MENU_BGM_TRACKS,
+    "BGM_EXTND05": DLC_SPONGEBOB_TRACKS,
 }
 
 VOICE_CRE_TRACKS = {
@@ -302,7 +335,7 @@ def _generate_voice_lines(speaker_code, stage_ids=[]):
     Generates a dictionary of voice lines with a variable number of course comments.
     The order of character interaction lines is generated dynamically based on the speaker.
     """
-    # Create a combined map of all stage IDs to names
+    # Create a combined map of all stage IDs to names for comments
     stage_name_map = {**BGM_DATA["Track Themes"], **BGM_DATA["Crossworlds"]}
 
     # Full list of characters for interactions
@@ -330,7 +363,7 @@ def _generate_voice_lines(speaker_code, stage_ids=[]):
         "Countdown Firstround", "Countdown Rankup"
     ]
     for label in pre_comment_labels:
-        lines[f"{i+1}: {label}"] = f"{i:05d}_streaming"
+        lines[f"{i+1}: {label}"] = f"{i:05d}_streaming" # 5-digit padding for file names
         i += 1
 
     # --- Section 2: Course Comments ---
@@ -340,7 +373,7 @@ def _generate_voice_lines(speaker_code, stage_ids=[]):
         i += 1
 
     for stage_id in stage_ids:
-        stage_name = stage_name_map.get(stage_id, stage_id) # Fallback to ID if name not found
+        stage_name = stage_name_map.get(stage_id, stage_id) # Fallback to ID if name not found (for "Unused")
         lines[f"{i+1}: Course Comment ({stage_name})"] = f"{i:05d}_streaming"
         i += 1
 
