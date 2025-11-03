@@ -22,7 +22,29 @@ BGM_DATA = {
         "2016": "White Cave", "2017": "Cyber Space", "2019": "Digital Circuit",
     },
     "Voice Lines": {
+        "SON": "Sonic the Hedgehog",
+        "TAI": "Miles 'Tails' Prower",
+        "KNU": "Knuckles the Echidna",
+        "AMY": "Amy Rose",
         "CRE": "Cream the Rabbit",
+        "BIG": "Big the Cat",
+        "SHA": "Shadow the Hedgehog",
+        "ROU": "Rouge the Bat",
+        "OME": "E-123 Omega",
+        "SIL": "Silver the Hedgehog",
+        "BLA": "Blaze the Cat",
+        "VEC": "Vector the Crocodile",
+        "ESP": "Espio the Chameleon",
+        "CHA": "Charmy Bee",
+        "ZAV": "Zavok",
+        "ZAZ": "Zazz",
+        "EGG": "Dr. Eggman",
+        "MET": "Metal Sonic",
+        "EGP": "Egg Pawn",
+        "SAG": "Sage",
+        "JET": "Jet the Hawk",
+        "WAV": "Wave the Swallow",
+        "STO": "Storm the Albatross",
     }
 }
 
@@ -274,3 +296,27 @@ VOICE_CRE_TRACKS = {
     "229: Use Item Violetvoid": "00228_streaming",
     "230: Use Item Warp": "00229_streaming",
 }
+
+# --- Placeholder Dictionaries for Other Characters ---
+VOICE_SON_TRACKS = {}
+VOICE_TAI_TRACKS = {}
+VOICE_KNU_TRACKS = {}
+VOICE_AMY_TRACKS = {}
+VOICE_BIG_TRACKS = {}
+VOICE_SHA_TRACKS = {}
+VOICE_ROU_TRACKS = {}
+VOICE_OME_TRACKS = {}
+VOICE_SIL_TRACKS = {}
+VOICE_BLA_TRACKS = {}
+VOICE_VEC_TRACKS = {}
+VOICE_ESP_TRACKS = {}
+VOICE_CHA_TRACKS = {}
+VOICE_ZAV_TRACKS = {}
+VOICE_ZAZ_TRACKS = {}
+VOICE_EGG_TRACKS = {}
+VOICE_MET_TRACKS = {}
+VOICE_EGP_TRACKS = {}
+VOICE_SAG_TRACKS = {}
+VOICE_JET_TRACKS = {}
+VOICE_WAV_TRACKS = {}
+VOICE_STO_TRACKS = {}

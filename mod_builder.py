@@ -13,7 +13,7 @@ except ImportError:
     print("Error: PySide6 module not found. Please install it using 'pip install PySide6'")
     sys.exit(1)
 
-from data import BGM_DATA, MENU_BGM_TRACKS, VOICE_CRE_TRACKS
+import data
 from ui_components import BGMSelectorWindow
 from mod_logic import ModLogic
 
@@ -72,7 +72,7 @@ class ModBuilderGUI(QMainWindow):
         self.menu_track_vars = {}
         self.voice_cre_track_vars = {}
 
-        central_widget = QWidget()
+        central_widget = QWidget() 
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
 
@@ -148,21 +148,18 @@ class ModBuilderGUI(QMainWindow):
         menu_layout.setContentsMargins(0,0,0,0)
         self.scroll_layout.addWidget(self.menu_music_frame)
 
-        for label, hca_name in MENU_BGM_TRACKS.items():
+        for label, hca_name in data.MENU_BGM_TRACKS.items():
             self.menu_track_vars[hca_name] = self._create_track_selector(menu_layout, label)
-            if hca_name != list(MENU_BGM_TRACKS.values())[-1]:
+            if hca_name != list(data.MENU_BGM_TRACKS.values())[-1]:
                 menu_layout.addWidget(self._create_separator())
 
-        # --- New Voice Line Frame (for VOICE_CRE) ---
+        # --- Dynamic Voice Line Frame ---
         self.voice_cre_frame = QWidget()
         voice_layout = QVBoxLayout(self.voice_cre_frame)
-        voice_layout.setContentsMargins(0,0,0,0)
+        voice_layout.setContentsMargins(0, 0, 0, 0)
         self.scroll_layout.addWidget(self.voice_cre_frame)
 
-        for label, hca_name in VOICE_CRE_TRACKS.items():
-            self.voice_cre_track_vars[hca_name] = self._create_track_selector(voice_layout, label)
-            if hca_name != list(VOICE_CRE_TRACKS.values())[-1]:
-                voice_layout.addWidget(self._create_separator())
+        # This frame will be populated dynamically in set_acb_file
 
         self.scroll_layout.addStretch()
 
@@ -256,6 +253,41 @@ class ModBuilderGUI(QMainWindow):
         for hca_name, var_dict in self.menu_track_vars.items():
             var_dict['loop'].setChecked(False)
         for hca_name, var_dict in self.voice_cre_track_vars.items():
+            var_dict['loop'].setChecked(False)
+
+    def _clear_layout(self, layout):
+        """Removes all widgets from a layout."""
+        if layout is not None:
+            while layout.count():
+                item = layout.takeAt(0)
+                widget = item.widget()
+                if widget is not None:
+                    widget.deleteLater()
+                else:
+                    self._clear_layout(item.layout())
+
+    def _populate_voice_frame(self, character_code):
+        """Dynamically populates the voice frame with selectors for the given character."""
+        self._clear_layout(self.voice_cre_frame.layout())
+        self.voice_cre_track_vars.clear()
+
+        # Get the correct track dictionary from the data module
+        track_dict_name = f"VOICE_{character_code}_TRACKS"
+        track_dict = getattr(data, track_dict_name, {})
+
+        if not track_dict:
+            label = QLabel(f"No voice lines defined for {character_code} in data.py yet.")
+            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.voice_cre_frame.layout().addWidget(label)
+            return
+
+        for label, hca_name in track_dict.items():
+            self.voice_cre_track_vars[hca_name] = self._create_track_selector(self.voice_cre_frame.layout(), label)
+            if hca_name != list(track_dict.values())[-1]:
+                self.voice_cre_frame.layout().addWidget(self._create_separator())
+
+        # Reset loop checks for the newly created widgets
+        for var_dict in self.voice_cre_track_vars.values():
             var_dict['loop'].setChecked(False)
 
     def run_command_threaded(self, target_func, on_complete, on_error, args=(), kwargs=None):
@@ -355,8 +387,10 @@ class ModBuilderGUI(QMainWindow):
         acb_path = Path(filepath)
         if acb_path.stem == "BGM":
             self.menu_music_frame.setVisible(True)
-        elif acb_path.stem == "VOICE_CRE":
+        elif acb_path.stem.startswith("VOICE_"):
+            character_code = acb_path.stem.split('_')[1]
             self.voice_cre_frame.setVisible(True)
+            self._populate_voice_frame(character_code)
         else:
             self.stage_music_frame.setVisible(True)
             if acb_path.stem.startswith("BGM_STG2"):
@@ -401,13 +435,13 @@ class ModBuilderGUI(QMainWindow):
         # --- Prepare list of conversions to run ---
         tasks = []
         is_menu_bgm = acb_path.stem == "BGM"
-        is_voice_cre = acb_path.stem == "VOICE_CRE"
+        is_voice_acb = acb_path.stem.startswith("VOICE_")
 
         if is_menu_bgm:
             for hca_name, var_dict in self.menu_track_vars.items():
                 if var_dict['path'].text():
                     tasks.append((hca_name, var_dict['path'].text(), var_dict['loop'].isChecked(), var_dict['start'].text(), var_dict['end'].text()))
-        elif is_voice_cre:
+        elif is_voice_acb:
             for hca_name, var_dict in self.voice_cre_track_vars.items():
                 if var_dict['path'].text():
                     tasks.append((hca_name, var_dict['path'].text(), var_dict['loop'].isChecked(), var_dict['start'].text(), var_dict['end'].text()))
@@ -464,7 +498,7 @@ class ModBuilderGUI(QMainWindow):
 
         acb_stem = Path(self._acb_file).stem
         is_menu_bgm = acb_stem == "BGM"
-        is_voice_cre = acb_stem == "VOICE_CRE"
+        is_voice_acb = acb_stem.startswith("VOICE_")
         is_crossworlds = acb_stem.startswith("BGM_STG2")
 
         # --- Define Special Track Structures ---
@@ -493,7 +527,7 @@ class ModBuilderGUI(QMainWindow):
                 converted_file = OUTPUT_DIR / f"{hca_name}.hca"
                 if converted_file.exists():
                     replacement_map[hca_name + ".hca"] = hca_name + ".hca"
-        elif is_voice_cre:
+        elif is_voice_acb:
             for hca_name, var_dict in self.voice_cre_track_vars.items():
                 converted_file = OUTPUT_DIR / f"{hca_name}.hca"
                 if converted_file.exists():

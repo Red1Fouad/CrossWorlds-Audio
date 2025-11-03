@@ -34,6 +34,24 @@ class ModLogic:
         self._execute_command([str(self.ACB_EDITOR), str(acb_path)], False, cwd=None)
         return str(unpacked_path)
 
+    def _get_vgaudiocli_command(self, acb_name):
+        """Parses Convert2UNION.bat to find the correct VGAudioCli command line."""
+        with open(self.CONVERT_BAT, 'r') as f:
+            lines = f.readlines()
+
+        command_line = None
+        target_label = f":option-{acb_name}"
+        for i, line in enumerate(lines):
+            if line.strip().lower() == target_label.lower():
+                if i + 1 < len(lines):
+                    command_line = lines[i+1].strip()
+                    break
+        
+        if not command_line or not command_line.lower().startswith("vgaudiocli.exe"):
+            raise ValueError(f"Could not find a valid VGAudioCli command for '{acb_name}' in '{self.CONVERT_BAT}'.")
+        
+        return command_line
+
     def _run_conversion_tasks(self, tasks, base_command_line, cwd):
         """The actual conversion logic that runs in a thread."""
         temp_input_dir = Path(cwd) / "input"
@@ -85,21 +103,7 @@ class ModLogic:
         if self.OUTPUT_DIR.exists():
             shutil.rmtree(self.OUTPUT_DIR)
         os.makedirs(self.OUTPUT_DIR)
-        
-        with open(self.CONVERT_BAT, 'r') as f:
-            lines = f.readlines()
-
-        command_line = None
-        target_label = f":option-{acb_name}"
-        for i, line in enumerate(lines):
-            if line.strip().lower() == target_label.lower():
-                if i + 1 < len(lines):
-                    command_line = lines[i+1].strip()
-                    break
-        
-        if not command_line or not command_line.lower().startswith("vgaudiocli.exe"):
-            raise ValueError(f"Could not find a valid VGAudioCli command for '{acb_name}' in '{self.CONVERT_BAT}'.")
-
+        command_line = self._get_vgaudiocli_command(acb_name)
         self._run_conversion_tasks(tasks, command_line, str(self.TOOLS_DIR))
 
     def repack_acb(self, unpacked_path):
