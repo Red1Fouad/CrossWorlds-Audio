@@ -1,5 +1,7 @@
 import os
 import sys
+import json
+from urllib import request
 from pathlib import Path
 
 try:
@@ -21,6 +23,8 @@ from mod_logic import ModLogic
 # Set the paths to your tools relative to this script.
 TOOLS_DIR = Path("tools")
 OUTPUT_DIR = Path("output")
+APP_VERSION = "1.3"
+GITHUB_REPO = "Red1Fouad/CrossWorlds-Audio"
 
 class Worker(QObject):
     """Worker for running tasks in a separate thread."""
@@ -43,7 +47,8 @@ class Worker(QObject):
 class ModBuilderGUI(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("CrossWorlds Music Mod Builder")
+        self.base_title = f"CrossWorlds Music Mod Builder v{APP_VERSION}"
+        self.setWindowTitle(self.base_title)
         self.resize(800, 750)
 
         # Set application icon
@@ -88,6 +93,9 @@ class ModBuilderGUI(QMainWindow):
         # --- Status Bar ---
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
+        # Check for updates on startup
+        QTimer.singleShot(1000, self.check_for_updates) # Delay slightly to not block startup
+
         self.status_bar.showMessage("Ready.")
 
         # --- Shortcuts ---
@@ -252,6 +260,51 @@ class ModBuilderGUI(QMainWindow):
         self.lap1_track_vars['loop'].setChecked(False)
         self.final_lap_track_vars['loop'].setChecked(False)
 
+    def check_for_updates(self):
+        """Initiates a background check for a new version on GitHub."""
+        self.status_bar.showMessage("Checking for updates...")
+        self.run_command_threaded(
+            self._perform_update_check,
+            on_complete=self.on_update_check_complete,
+            on_error=self.on_update_check_error
+        )
+
+    def _perform_update_check(self):
+        """The actual update check logic that runs in a thread."""
+        api_url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+        try:
+            with request.urlopen(api_url) as response:
+                if response.status == 200:
+                    data = json.loads(response.read().decode())
+                    latest_version_tag = data.get("tag_name", "").lstrip('v')
+                    
+                    # Simple version comparison
+                    if latest_version_tag and latest_version_tag > APP_VERSION:
+                        assets = data.get("assets", [])
+                        download_url = None
+                        # Find the correct .7z file
+                        for asset in assets:
+                            if asset.get("name") == f"CrossWorlds-Music-Editor{latest_version_tag}.7z":
+                                download_url = asset.get("browser_download_url")
+                                break
+                        if download_url:
+                            return {"new_version": latest_version_tag, "url": download_url}
+        except Exception as e:
+            print(f"Update check failed: {e}")
+        return None # No update or an error occurred
+
+    def on_update_check_complete(self, result):
+        self.status_bar.showMessage("Ready.", 2000) # Show "Ready" for 2 seconds
+        if result:
+            reply = QMessageBox.information(self, "Update Available",
+                                          f"A new version ({result['new_version']}) is available!\n\nWould you like to open the download page?",
+                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            if reply == QMessageBox.StandardButton.Yes:
+                QDesktopServices.openUrl(QUrl(result['url']))
+
+    def on_update_check_error(self, error):
+        self.status_bar.showMessage("Update check failed.", 3000)
+
     def focus_search_bar(self):
         if self.voice_search_bar and self.voice_search_bar.isVisible():
             self.voice_search_bar.setFocus()
@@ -283,6 +336,8 @@ class ModBuilderGUI(QMainWindow):
             is_voice_acb = True # Treat her like a voice ACB for UI purposes
         elif acb_stem == "BGM_EXTND04": # Minecraft uses its own full dictionary
             track_dict = data.DLC_MINECRAFT_TRACKS
+        elif acb_stem == "SE_COURSE":
+            track_dict = data.SE_COURSE_TRACKS
         elif acb_stem in data.SPECIAL_TRACK_MAP:
             track_dict = data.SPECIAL_TRACK_MAP[acb_stem]
 
@@ -393,10 +448,11 @@ class ModBuilderGUI(QMainWindow):
         
         # Update window title with friendly name
         acb_stem = Path(filepath).stem
-        friendly_name = data.FRIENDLY_NAME_MAP.get(acb_stem)
-        base_title = "CrossWorlds Music Mod Builder"
+        friendly_name = data.FRIENDLY_NAME_MAP.get(acb_stem) 
         if friendly_name:
-            self.setWindowTitle(f"{base_title} - [{friendly_name}]")
+            self.setWindowTitle(f"{self.base_title} - [{friendly_name}]")
+        else:
+            self.setWindowTitle(self.base_title)
 
         # Reset subsequent steps
         self._unpacked_folder = ""
@@ -429,7 +485,7 @@ class ModBuilderGUI(QMainWindow):
         acb_path = Path(filepath)
         acb_stem = acb_path.stem
 
-        if acb_stem.startswith("VOICE_") or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_EXTND10_CHARA":
+        if acb_stem.startswith("VOICE_") or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_EXTND10_CHARA" or acb_stem == "SE_COURSE":
             self.special_track_frame.setVisible(True)
             self._populate_special_track_frame(acb_stem)
         else:
@@ -481,8 +537,8 @@ class ModBuilderGUI(QMainWindow):
         self.status_bar.showMessage(f"Preparing to convert audio for '{acb_path.stem}'...")
 
         # --- Prepare list of conversions to run ---
-        tasks = []
-        if acb_path.stem.startswith("VOICE_") or acb_path.stem in data.SPECIAL_TRACK_MAP or acb_path.stem == "BGM_EXTND04" or acb_path.stem == "SE_EXTND10_CHARA":
+        tasks = [] # hca_name, path, is_looping, start, end
+        if acb_path.stem.startswith("VOICE_") or acb_path.stem in data.SPECIAL_TRACK_MAP or acb_path.stem == "BGM_EXTND04" or acb_path.stem == "SE_EXTND10_CHARA" or acb_path.stem == "SE_COURSE":
             for hca_name, var_dict in self.special_track_vars.items():
                 if var_dict['path'].text():
                     is_looping = var_dict.get('loop') and var_dict['loop'].isChecked()
@@ -544,7 +600,7 @@ class ModBuilderGUI(QMainWindow):
         replacement_map = {}
 
         acb_stem = Path(self._acb_file).stem
-        is_special_acb_for_onetoone = acb_stem.startswith("VOICE_") or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_EXTND10_CHARA"
+        is_special_acb_for_onetoone = acb_stem.startswith("VOICE_") or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_EXTND10_CHARA" or acb_stem == "SE_COURSE"
         is_crossworlds = acb_stem.startswith("BGM_STG2")
 
         # --- Define Special Track Structures ---
@@ -570,13 +626,14 @@ class ModBuilderGUI(QMainWindow):
         # Build the replacement map based on converted files
         if is_special_acb_for_onetoone: # For Menu, Voice, and Spongebob (one-to-one mapping)
             for hca_name, var_dict in self.special_track_vars.items():
-                converted_file = OUTPUT_DIR / f"{hca_name}.hca"
+                # SE_COURSE uses .adx, others use .hca
+                file_ext = "adx" if acb_stem == "SE_COURSE" else "hca"
+                converted_file = OUTPUT_DIR / f"{hca_name}.{file_ext}"
                 if converted_file.exists():
-                    replacement_map[hca_name + ".hca"] = hca_name + ".hca"
+                    replacement_map[f"{hca_name}.{file_ext}"] = f"{hca_name}.{file_ext}"
             
             # Handle implicit intros for SpongeBob
             if acb_stem == "BGM_EXTND05":
-                # If the user provided a file for "Final Lap" (which is '00024_streaming')
                 final_lap_hca_name = "00024_streaming"
                 final_lap_intro_hca_name = "00025_streaming"
                 if (OUTPUT_DIR / f"{final_lap_hca_name}.hca").exists():

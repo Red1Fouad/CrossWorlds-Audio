@@ -20,7 +20,6 @@ class BGMSelectorWindow(QDialog):
 
         for category, tracks in BGM_DATA.items():
             category_node = QTreeWidgetItem(self.tree, [category])
-            category_node.setExpanded(True)
             for id_num, name in tracks.items():
                 filename = ""
                 if category == "Menu & System":
@@ -29,10 +28,14 @@ class BGMSelectorWindow(QDialog):
                     # Special case for Miku's unique filename
                     if id_num == "EXTND10_CHARA":
                         filename = "SE_EXTND10_CHARA.acb"
+                    elif id_num == "COURSE":
+                        filename = "SE_COURSE.acb"
                     else:
                         filename = f"VOICE_{id_num}.acb"
                 elif category == "DLC Tracks":
                     filename = f"BGM_{id_num}.acb"
+                elif category == "Misc":
+                    filename = f"SE_{id_num}.acb"
                 else:
                     filename = f"BGM_STG{id_num}.acb"
                 
@@ -55,6 +58,13 @@ class BGMSelectorWindow(QDialog):
         selected_items = self.tree.selectedItems()
         if selected_items and selected_items[0].childCount() == 0:
             self.result = selected_items[0].text(1)
+
+            # Add a specific warning for Crystal Mine
+            if self.result == "BGM_STG1029.acb":
+                QMessageBox.warning(self, "Moddability Warning",
+                                    "Crystal Mine (BGM_STG1029.acb) is currently not fully moddable.\n\n"
+                                    "Audio replacements for this track may not work correctly in-game.")
+
             self.accept()
         else:
             QMessageBox.warning(self, "Selection Error", "Please select a specific track, not a category.")
