@@ -44,6 +44,45 @@ class Worker(QObject):
         except Exception as e:
             self.error.emit(e)
 
+# A custom QLineEdit that accepts drag-and-drop for file paths.
+class DropLineEdit(QLineEdit):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAcceptDrops(True)
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+        else:
+            super().dragEnterEvent(event)
+
+    def dropEvent(self, event):
+        if event.mimeData().hasUrls():
+            # We only accept one file.
+            url = event.mimeData().urls()[0]
+            self.setText(url.toLocalFile())
+            event.acceptProposedAction()
+        else:
+            super().dropEvent(event)
+
+class Worker(QObject):
+    """Worker for running tasks in a separate thread."""
+    finished = Signal(object)
+    error = Signal(Exception)
+
+    def __init__(self, function, *args, **kwargs):
+        super().__init__()
+        self.function = function
+        self.args = args
+        self.kwargs = kwargs
+
+    def run(self):
+        try:
+            result = self.function(*self.args, **self.kwargs)
+            self.finished.emit(result)
+        except Exception as e:
+            self.error.emit(e)
+
 class ModBuilderGUI(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -213,8 +252,8 @@ class ModBuilderGUI(QMainWindow):
 
         browse_layout = QHBoxLayout()
         browse_layout.addWidget(QLabel(label_text))
-        path_edit = QLineEdit()
-        path_edit.setReadOnly(True)
+        path_edit = DropLineEdit()
+        path_edit.setReadOnly(False) # Allow pasting
         browse_layout.addWidget(path_edit)
         browse_button = QPushButton("Browse...")
         browse_layout.addWidget(browse_button)
