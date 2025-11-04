@@ -74,7 +74,8 @@ class ModLogic:
                 ffmpeg_cmd = [str(self.FFMPEG), '-i', str(wav_path), str(temp_wav_path)]
                 subprocess.run(ffmpeg_cmd, check=True, capture_output=True) # Capture output to hide ffmpeg info
             else:
-                shutil.copy2(wav_path, temp_input_dir)
+                temp_wav_path = temp_input_dir / Path(name).with_suffix('.wav').name
+                shutil.copy2(wav_path, temp_wav_path)
 
             command_parts = shlex.split(base_command_line)
 
