@@ -1,7 +1,7 @@
 import os
 import sys
 import json
-from urllib import request
+import time
 from pathlib import Path
 
 try:
@@ -271,9 +271,10 @@ class ModBuilderGUI(QMainWindow):
 
     def _perform_update_check(self):
         """The actual update check logic that runs in a thread."""
+        from urllib import request
         api_url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
         try:
-            with request.urlopen(api_url) as response:
+            with request.urlopen(api_url, timeout=10) as response: # 10-second timeout
                 if response.status == 200:
                     data = json.loads(response.read().decode())
                     latest_version_tag = data.get("tag_name", "").lstrip('v')
