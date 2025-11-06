@@ -18,32 +18,18 @@ except ImportError:
 
 import data
 from ui_components import BGMSelectorWindow, ImageCard, TrackEditorWidget, SettingsDialog
+from volume_logic import normalize_audio_file
 from mod_logic import ModLogic
 
 # --- Configuration ---
 # Set the paths to your tools relative to this script.
 TOOLS_DIR = Path("tools")
 OUTPUT_DIR = Path("output")
-APP_VERSION = "1.3"
+SAMPLES_DIR = TOOLS_DIR / "samples"
+MUSIC_REF_PATH = SAMPLES_DIR / "music.wav"
+VOICE_SFX_REF_PATH = SAMPLES_DIR / "voice.wav"
+APP_VERSION = "1.4"
 GITHUB_REPO = "Red1Fouad/CrossWorlds-Audio"
-
-class Worker(QObject):
-    """Worker for running tasks in a separate thread."""
-    finished = Signal(object)
-    error = Signal(Exception)
-
-    def __init__(self, function, *args, **kwargs):
-        super().__init__()
-        self.function = function
-        self.args = args
-        self.kwargs = kwargs
-
-    def run(self):
-        try:
-            result = self.function(*self.args, **self.kwargs)
-            self.finished.emit(result)
-        except Exception as e:
-            self.error.emit(e)
 
 class Worker(QObject):
     """Worker for running tasks in a separate thread."""
@@ -73,8 +59,7 @@ class ModBuilderGUI(QMainWindow):
         # Set application icon
         self.setWindowIcon(QIcon("tools/ico.ico"))
 
-        self.thread = None
-        self.worker = None
+        self.active_threads = [] # Keep references to active threads
 
         self.config = configparser.ConfigParser()
         self.settings_file = Path("settings.ini")
@@ -105,6 +90,7 @@ class ModBuilderGUI(QMainWindow):
         self.lap1_track_vars = {}
         self.final_lap_track_vars = {}
 
+        self.all_track_editors = [] # To manage audio playback
         # --- New state vars for menu music ---
         self.special_track_vars = {}
         self.voice_search_bar = None
@@ -193,6 +179,9 @@ class ModBuilderGUI(QMainWindow):
                 print(f"Removed temporary directory: {tools_input}")
             except Exception as e:
                 print(f"Error removing {tools_input}: {e}")
+
+        # Stop any lingering audio players
+        self.stop_all_audio()
 
         event.accept()
 
@@ -337,9 +326,14 @@ class ModBuilderGUI(QMainWindow):
         self.scroll_layout.addWidget(self.stage_music_frame)
 
         self.intro_track_vars = TrackEditorWidget("Intro Music")
+        self.intro_track_vars.play_requested.connect(self.on_play_requested)
         self.lap1_track_vars = TrackEditorWidget("Lap 1 Music")
+        self.intro_track_vars.normalize_requested.connect(lambda path: self.on_normalize_requested(path, 'music'))
+        self.lap1_track_vars.play_requested.connect(self.on_play_requested)
         self.final_lap_track_vars = TrackEditorWidget("Final Lap Music")
+        self.final_lap_track_vars.play_requested.connect(self.on_play_requested)
 
+        self.all_track_editors.extend([self.intro_track_vars, self.lap1_track_vars, self.final_lap_track_vars])
         # --- New Menu Music Frame ---
         # This single frame will be used for Menu, Voice, and DLC tracks
         self.special_track_frame = QWidget()
@@ -537,6 +531,7 @@ class ModBuilderGUI(QMainWindow):
         """Dynamically populates the special tracks frame with the correct selectors."""
         self._clear_layout(self.special_track_frame.layout())
         self.special_track_vars.clear()
+        self.all_track_editors = [self.intro_track_vars, self.lap1_track_vars, self.final_lap_track_vars] # Reset
         self.voice_search_bar = None
         track_dict = {}
         is_voice_acb = acb_stem.startswith("VOICE_")
@@ -577,7 +572,10 @@ class ModBuilderGUI(QMainWindow):
         show_loops = not is_voice_acb # No loops for voice lines
         for label, hca_name in track_dict.items():
             editor_widget = TrackEditorWidget(label, show_loop_options=show_loops)
+            editor_widget.play_requested.connect(self.on_play_requested)
+            editor_widget.normalize_requested.connect(lambda path, track_type='sfx' if acb_stem.startswith("SE_") else 'voice': self.on_normalize_requested(path, track_type))
             self.special_track_vars[hca_name] = editor_widget
+            self.all_track_editors.append(editor_widget)
             self.special_track_frame.layout().addWidget(editor_widget)
 
     def _filter_special_lines(self, text):
@@ -600,19 +598,25 @@ class ModBuilderGUI(QMainWindow):
         """Runs a command in a separate thread to avoid freezing the GUI."""
         if kwargs is None:
             kwargs = {}
-        self.thread = QThread()
-        self.worker = Worker(target_func, *args, **kwargs)
-        self.worker.moveToThread(self.thread)
+        thread = QThread()
+        worker = Worker(target_func, *args, **kwargs)
+        worker.moveToThread(thread)
 
-        self.thread.started.connect(self.worker.run)
-        self.worker.finished.connect(on_complete)
-        self.worker.error.connect(on_error)
+        # Store references
+        self.active_threads.append((thread, worker))
 
-        self.worker.finished.connect(self.thread.quit)
-        self.worker.finished.connect(self.worker.deleteLater)
-        self.thread.finished.connect(self.thread.deleteLater)
+        thread.started.connect(worker.run)
+        worker.finished.connect(on_complete)
+        worker.error.connect(on_error)
 
-        self.thread.start()
+        # Clean up when finished
+        worker.finished.connect(thread.quit)
+        worker.finished.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        # Remove from our list when the thread is done
+        thread.finished.connect(lambda: self.active_threads.remove((thread, worker)))
+
+        thread.start()
 
     def on_command_error(self, error):
         self.status_bar.showMessage("Error! Check console for details.")
@@ -627,6 +631,52 @@ class ModBuilderGUI(QMainWindow):
         self.repack_button.setEnabled(bool(self._unpacked_folder))
         self.pak_button.setEnabled(bool(self._unpacked_folder))
 
+    def stop_all_audio(self):
+        """Stops playback on all track editor widgets."""
+        for editor in self.all_track_editors:
+            editor.stop_playback()
+
+    def on_play_requested(self, requesting_widget):
+        """When one widget wants to play, stop all others first."""
+        for editor in self.all_track_editors:
+            if editor is not requesting_widget:
+                editor.stop_playback()
+
+    def on_normalize_requested(self, source_path_str, track_type):
+        """Handles the normalization request from a TrackEditorWidget."""
+        if not source_path_str:
+            QMessageBox.warning(self, "No File", "Please select an audio file first.")
+            return
+
+        source_path = Path(source_path_str)
+        if not source_path.exists():
+            QMessageBox.critical(self, "File Not Found", f"The file '{source_path.name}' could not be found.")
+            return
+
+        if track_type == 'music':
+            ref_path = MUSIC_REF_PATH
+        elif track_type in ['voice', 'sfx']:
+            ref_path = VOICE_SFX_REF_PATH
+        else:
+            QMessageBox.critical(self, "Error", f"Unknown track type '{track_type}' for normalization.")
+            return
+
+        if not ref_path.exists():
+            QMessageBox.critical(self, "Reference File Missing", f"The reference audio file is missing:\n{ref_path}")
+            return
+
+        # The output will be a WAV file with a '_norm' suffix in the same directory.
+        output_path = source_path.with_name(f"{source_path.stem}_norm.wav")
+
+        self.status_bar.showMessage(f"Normalizing '{source_path.name}'...")
+        try:
+            normalize_audio_file(str(source_path), str(ref_path), str(output_path))
+            self.status_bar.showMessage(f"Normalization complete. Saved as '{output_path.name}'.", 5000)
+            QMessageBox.information(self, "Normalization Complete", f"Normalized audio saved as:\n{output_path.name}\n\nThe file path in the editor has been updated for you.")
+            return str(output_path) # Return the new path
+        except Exception as e:
+            self.on_command_error(e)
+
     def _prompt_for_acb_file(self, acb_filename_stem):
         """Opens a file dialog to locate an ACB file and returns the selected path or None."""
         filter_str = f"Specific ACB ({acb_filename_stem}.acb);;All ACB files (*.acb);;All files (*.*)"
@@ -638,76 +688,6 @@ class ModBuilderGUI(QMainWindow):
             dir=str(Path.cwd())
         )
         return filepath if filepath else None
-
-    def locate_acb_file(self):
-        """Handles the 'Locate File...' button click in the editor screen."""
-        acb_filename_stem = Path(self._acb_file).stem if self._acb_file else "game"
-
-        filepath = self._prompt_for_acb_file(acb_filename_stem)
-        if filepath:
-            self.set_acb_file(filepath, auto_unpack=False) # Don't auto-unpack when using the button
-
-    def set_acb_file(self, filepath):
-        """Central function to set the ACB file and reset the UI state."""
-        self._acb_file = filepath
-        self.acb_file_edit.setText(filepath)
-        self.unpack_button.setEnabled(True)
-        
-        # Update window title with friendly name
-        acb_stem = Path(filepath).stem
-        if filepath: # Only update title if a file is actually set
-            friendly_name = data.FRIENDLY_NAME_MAP.get(acb_stem)
-            if friendly_name:
-                self.setWindowTitle(f"{self.base_title} - [{friendly_name}]")
-            else:
-                self.setWindowTitle(f"{self.base_title} - [{acb_stem}]")
-
-        # Reset subsequent steps
-        self._unpacked_folder = ""
-        self.convert_button.setEnabled(False)
-
-        self.intro_track_vars.path_edit.setText('')
-        self.lap1_track_vars.path_edit.setText('')
-        self.final_lap_track_vars.path_edit.setText('')
-        self.intro_track_vars.loop_checkbox.setChecked(False)
-        self.lap1_track_vars.loop_checkbox.setChecked(False)
-        self.final_lap_track_vars.loop_checkbox.setChecked(False)
-
-        # Hide conversion options and show the placeholder text
-        self.stage_music_frame.setVisible(False)
-        self.special_track_frame.setVisible(False)
-        self.scroll_area.setVisible(False)
-        self.convert_button.setVisible(False)
-        self.unpack_first_label.setVisible(True)
-
-        # Clear special track vars, they will be repopulated
-        for var_dict in list(self.special_track_vars.values()):
-            var_dict.path_edit.setText('')
-            if var_dict.loop_checkbox:
-                var_dict.loop_checkbox.setChecked(False)
-
-        self.repack_button.setEnabled(False)
-        self.pak_button.setEnabled(False)
-
-        # Show/hide widgets based on filename
-        acb_path = Path(filepath)
-        acb_stem = acb_path.stem
-
-        if acb_stem.startswith("VOICE_") or acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA"] or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_COURSE":
-            self.special_track_frame.setVisible(True)
-            self._populate_special_track_frame(acb_stem)
-        else:
-            self.stage_music_frame.setVisible(True)
-            # Add widgets to layout if not already there
-            if self.stage_music_frame.layout().count() == 0:
-                self.stage_music_frame.layout().addWidget(self.intro_track_vars)
-                self.stage_music_frame.layout().addWidget(self.lap1_track_vars)
-                self.stage_music_frame.layout().addWidget(self.final_lap_track_vars)
-
-            if acb_path.stem.startswith("BGM_STG2"):
-                self.intro_track_vars.setVisible(False)
-            else:
-                self.intro_track_vars.setVisible(True)
 
     def set_acb_file(self, filepath, auto_unpack=False):
         """Central function to set the ACB file and reset the UI state."""
@@ -763,8 +743,11 @@ class ModBuilderGUI(QMainWindow):
             # Add widgets to layout if not already there
             if self.stage_music_frame.layout().count() == 0:
                 self.stage_music_frame.layout().addWidget(self.intro_track_vars)
+                self.intro_track_vars.normalize_requested.connect(lambda path: self.intro_track_vars.path_edit.setText(self.on_normalize_requested(path, 'music')))
                 self.stage_music_frame.layout().addWidget(self.lap1_track_vars)
+                self.lap1_track_vars.normalize_requested.connect(lambda path: self.lap1_track_vars.path_edit.setText(self.on_normalize_requested(path, 'music')))
                 self.stage_music_frame.layout().addWidget(self.final_lap_track_vars)
+                self.final_lap_track_vars.normalize_requested.connect(lambda path: self.final_lap_track_vars.path_edit.setText(self.on_normalize_requested(path, 'music')))
 
             if acb_path.stem.startswith("BGM_STG2"):
                 self.intro_track_vars.setVisible(False)
@@ -773,6 +756,14 @@ class ModBuilderGUI(QMainWindow):
 
         if auto_unpack and self._acb_file:
             QTimer.singleShot(100, self.unpack_acb)
+
+    def locate_acb_file(self):
+        """Handles the 'Locate File...' button click in the editor screen."""
+        acb_filename_stem = Path(self._acb_file).stem if self._acb_file else "game"
+
+        filepath = self._prompt_for_acb_file(acb_filename_stem)
+        if filepath:
+            self.set_acb_file(filepath, auto_unpack=False) # Don't auto-unpack when using the button
 
     def _get_original_file_index(self, hca_filename):
         """Helper to find the 0-based index of a specific HCA filename in the sorted original_files list."""

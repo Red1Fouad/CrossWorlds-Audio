@@ -8,6 +8,12 @@ try:
                                    QCheckBox)
     from PySide6.QtCore import Qt, QThread, Signal, QObject, QTimer, QSize
     from PySide6.QtGui import QDesktopServices, QShortcut, QKeySequence, QIcon, QPixmap, QPainter, QColor
+    try:
+        from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
+        MULTIMEDIA_AVAILABLE = True
+    except ImportError:
+        print("Warning: PySide6.QtMultimedia not found. Audio playback will be disabled. Install with 'pip install PySide6-Addons'")
+        MULTIMEDIA_AVAILABLE = False
     from PySide6.QtCore import QUrl
 except ImportError:
     print("Error: PySide6 module not found. Please install it using 'pip install PySide6'")
@@ -117,6 +123,9 @@ class ImageCard(QFrame):
 
 class TrackEditorWidget(QFrame):
     """A collapsible widget for editing a single track's replacement file and loop points."""
+    play_requested = Signal(object)  # Signal that this widget wants to play audio
+    normalize_requested = Signal(str) # Signal that this widget wants to normalize audio
+
     def __init__(self, label_text, show_loop_options=True, parent=None):
         super().__init__(parent)
         self.setFrameShape(QFrame.Shape.StyledPanel)
@@ -127,6 +136,12 @@ class TrackEditorWidget(QFrame):
         self.loop_checkbox = None
         self.loop_start_edit = None
         self.loop_end_edit = None
+
+        # --- Audio Playback ---
+        self.player = None
+        self.audio_output = None
+        if MULTIMEDIA_AVAILABLE:
+            self._init_player()
 
         # --- Main Layout ---
         main_layout = QVBoxLayout(self)
@@ -141,11 +156,20 @@ class TrackEditorWidget(QFrame):
         header_layout.setContentsMargins(8, 5, 8, 5)
 
         self.toggle_arrow = QLabel("▶")
+        self.play_button = QPushButton("▶")
+        self.play_button.setFixedSize(22, 22)
+        self.play_button.setToolTip("Preview Audio")
+        self.play_button.setEnabled(False)
+        if MULTIMEDIA_AVAILABLE:
+            self.play_button.clicked.connect(self.toggle_playback)
+        else:
+            self.play_button.setVisible(False)
         self.title_label = QLabel(f"<b>{label_text}</b>")
         self.status_label = QLabel("<i>No file selected</i>")
         self.status_label.setObjectName("StatusLabel")
 
         header_layout.addWidget(self.toggle_arrow)
+        header_layout.addWidget(self.play_button)
         header_layout.addWidget(self.title_label)
         header_layout.addStretch()
         header_layout.addWidget(self.status_label)
@@ -181,10 +205,14 @@ class TrackEditorWidget(QFrame):
         self.path_edit.textChanged.connect(self._update_status)
         clear_button = QPushButton("Clear")
         clear_button.clicked.connect(self.path_edit.clear)
+        self.normalize_button = QPushButton("Normalize")
+        self.normalize_button.setToolTip("Normalizes this audio file against a reference and saves it as a new WAV file.")
+        self.normalize_button.clicked.connect(self.emit_normalize_request)
         browse_button = QPushButton("Browse...")
         browse_button.clicked.connect(self._browse_for_file)
         browse_layout.addWidget(self.path_edit)
         browse_layout.addWidget(clear_button)
+        browse_layout.addWidget(self.normalize_button)
         browse_layout.addWidget(browse_button)
         content_layout.addLayout(browse_layout)
 
@@ -225,6 +253,10 @@ class TrackEditorWidget(QFrame):
         self.content_frame.parentWidget().layout().invalidate()
 
     def _toggle_loop_edits_enabled(self, checked):
+        """Emits the normalize_requested signal with the current file path."""
+        self.normalize_requested.emit(self.path_edit.text())
+
+    def _toggle_loop_edits_enabled(self, checked):
         """Enables or disables the loop point input fields based on the checkbox state."""
         if self.loop_start_edit and self.loop_end_edit:
             self.loop_start_edit.setEnabled(checked)
@@ -247,6 +279,49 @@ class TrackEditorWidget(QFrame):
         # Re-polish to apply style changes
         self.header_frame.style().unpolish(self.header_frame)
         self.header_frame.style().polish(self.header_frame)
+
+        # Enable/disable play button
+        if MULTIMEDIA_AVAILABLE:
+            has_text = bool(self.path_edit.text())
+            is_audio = has_text and Path(self.path_edit.text()).suffix.lower() in ['.wav', '.mp3', '.flac', '.ogg', '.m4a']
+            self.normalize_button.setEnabled(is_audio)
+            self.play_button.setEnabled(is_audio)
+            if not has_text:
+                self.stop_playback() # Stop playing if text is cleared
+
+    def _init_player(self):
+        self.player = QMediaPlayer()
+        self.audio_output = QAudioOutput()
+        self.player.setAudioOutput(self.audio_output)
+        self.player.playbackStateChanged.connect(self._on_playback_state_changed)
+
+    def toggle_playback(self):
+        if not self.player: return
+
+        if self.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
+            self.stop_playback()
+        else:
+            self.play_requested.emit(self)
+            filepath = self.path_edit.text()
+            if filepath and Path(filepath).exists():
+                self.player.setSource(QUrl.fromLocalFile(filepath))
+                self.player.play()
+
+    def stop_playback(self):
+        if self.player and self.player.playbackState() != QMediaPlayer.PlaybackState.StoppedState:
+            self.player.stop()
+
+    def _on_playback_state_changed(self, state):
+        if state == QMediaPlayer.PlaybackState.PlayingState:
+            self.play_button.setText("■") # Stop symbol
+            self.play_button.setToolTip("Stop Preview")
+        else: # Stopped or Paused
+            self.play_button.setText("▶") # Play symbol
+            self.play_button.setToolTip("Preview Audio")
+
+    def emit_normalize_request(self):
+        """Emits the normalize_requested signal with the current file path."""
+        self.normalize_requested.emit(self.path_edit.text())
 
 class SettingsDialog(QDialog):
     """A dialog for application settings."""
