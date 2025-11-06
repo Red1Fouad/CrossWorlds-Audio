@@ -1,12 +1,13 @@
 import os
 import sys
-import json
+import json, configparser
 import time
 from pathlib import Path
+import shutil
 
 try:
-    from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel,
-                                   QLineEdit, QPushButton, QFileDialog, QMessageBox, QTreeWidget, QTreeWidgetItem,
+    from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel, QLineEdit,
+                                   QPushButton, QFileDialog, QMessageBox, QTreeWidget, QTreeWidgetItem, QTabWidget, QGridLayout,
                                    QScrollArea, QFrame, QMenuBar, QStatusBar)
     from PySide6.QtCore import Qt, QThread, Signal, QObject, QTimer
     from PySide6.QtGui import QDesktopServices, QShortcut, QKeySequence, QIcon
@@ -16,7 +17,7 @@ except ImportError:
     sys.exit(1)
 
 import data
-from ui_components import BGMSelectorWindow
+from ui_components import BGMSelectorWindow, ImageCard, TrackEditorWidget, SettingsDialog
 from mod_logic import ModLogic
 
 # --- Configuration ---
@@ -44,27 +45,6 @@ class Worker(QObject):
         except Exception as e:
             self.error.emit(e)
 
-# A custom QLineEdit that accepts drag-and-drop for file paths.
-class DropLineEdit(QLineEdit):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setAcceptDrops(True)
-
-    def dragEnterEvent(self, event):
-        if event.mimeData().hasUrls():
-            event.acceptProposedAction()
-        else:
-            super().dragEnterEvent(event)
-
-    def dropEvent(self, event):
-        if event.mimeData().hasUrls():
-            # We only accept one file.
-            url = event.mimeData().urls()[0]
-            self.setText(url.toLocalFile())
-            event.acceptProposedAction()
-        else:
-            super().dropEvent(event)
-
 class Worker(QObject):
     """Worker for running tasks in a separate thread."""
     finished = Signal(object)
@@ -87,7 +67,7 @@ class ModBuilderGUI(QMainWindow):
     def __init__(self):
         super().__init__()
         self.base_title = f"CrossWorlds Music Mod Builder v{APP_VERSION}"
-        self.setWindowTitle(self.base_title)
+        self.setWindowTitle("CrossWorlds Music Mod Builder - Select a Category")
         self.resize(800, 750)
 
         # Set application icon
@@ -96,10 +76,18 @@ class ModBuilderGUI(QMainWindow):
         self.thread = None
         self.worker = None
 
+        self.config = configparser.ConfigParser()
+        self.settings_file = Path("settings.ini")
+
         self.logic = ModLogic(TOOLS_DIR, OUTPUT_DIR)
 
         # --- Menu Bar ---
         menu_bar = self.menuBar()
+        file_menu = menu_bar.addMenu("File")
+        settings_action = file_menu.addAction("Settings...")
+        settings_action.triggered.connect(self.show_settings_dialog)
+
+
         help_menu = menu_bar.addMenu("Help")
         credits_action = help_menu.addAction("Credits")
         credits_action.triggered.connect(self.show_credits)
@@ -109,6 +97,8 @@ class ModBuilderGUI(QMainWindow):
         self._unpacked_folder = ""
         self._mod_name = "MyAwesomeMusicMod"
         self.original_files = []
+        self._acb_path_cache = {} # Cache for selected ACB paths per session
+        self.criware_folder_path = None
 
         # --- New state vars for direct file selection ---
         self.intro_track_vars = {}
@@ -118,13 +108,27 @@ class ModBuilderGUI(QMainWindow):
         # --- New state vars for menu music ---
         self.special_track_vars = {}
         self.voice_search_bar = None
+        self._image_file_cache = None # Cache for smart image search
 
         central_widget = QWidget() 
         self.setCentralWidget(central_widget)
-        main_layout = QVBoxLayout(central_widget)
+        self.main_layout = QVBoxLayout(central_widget)
 
-        # --- Create Widgets ---
-        self._create_widgets(main_layout)
+        # --- Create Main UI Structure ---
+        # 1. Selection Screen (Tabs with Cards)
+        self.selection_screen = QWidget()
+        self.main_layout.addWidget(self.selection_screen)
+        self._create_selection_screen(QVBoxLayout(self.selection_screen))
+
+        # 2. Editor Screen (Steps 1-3) - Initially hidden
+        self.editor_screen = QWidget()
+        self.main_layout.addWidget(self.editor_screen)
+        self._create_editor_screen(QVBoxLayout(self.editor_screen))
+
+        # --- Load settings after UI is created ---
+        self.load_settings()
+        self.editor_screen.setVisible(False)
+
 
         # --- Check for tools on startup ---
         self.check_tools()
@@ -140,15 +144,157 @@ class ModBuilderGUI(QMainWindow):
         # --- Shortcuts ---
         self.search_shortcut = QShortcut(QKeySequence("Ctrl+F"), self)
         self.search_shortcut.activated.connect(self.focus_search_bar)
+        
+        # --- Global Stylesheet ---
+        self.setStyleSheet("""
+            #TrackEditorWidget {
+                border: 1px solid palette(mid);
+                border-radius: 5px;
+                margin-bottom: 5px;
+            }
+            #HeaderFrame {
+                background-color: palette(button);
+                border-top-left-radius: 4px;
+                border-top-right-radius: 4px;
+            }
+            #HeaderFrame[hasFile="true"] {
+                background-color: palette(highlight);
+            }
+            #ContentFrame {
+                background-color: palette(base);
+                border-bottom-left-radius: 4px;
+                border-bottom-right-radius: 4px;
+                border-top: 1px solid palette(mid);
+            }
+        """)
 
-    def _create_widgets(self, main_layout):
+    def closeEvent(self, event):
+        """Clean up temporary folders on application close."""
+        # Save settings before closing
+        self.save_settings()
+
+        print("Cleaning up temporary folders...")
+        
+        # Clean up the main output directory that holds converted .hca files
+        if OUTPUT_DIR.exists():
+            try:
+                shutil.rmtree(OUTPUT_DIR)
+                print(f"Removed temporary directory: {OUTPUT_DIR}")
+            except Exception as e:
+                print(f"Error removing {OUTPUT_DIR}: {e}")
+
+        # Clean up temporary conversion folders that might be left inside tools
+        tools_input = TOOLS_DIR / "input"
+        tools_output = TOOLS_DIR / "output"
+        
+        if tools_input.exists():
+            try:
+                shutil.rmtree(tools_input)
+                print(f"Removed temporary directory: {tools_input}")
+            except Exception as e:
+                print(f"Error removing {tools_input}: {e}")
+
+        event.accept()
+
+    def _find_image_path(self, acb_stem, friendly_name, image_folder):
+        """
+        Finds the path for a card's image.
+        1. Tries the direct path: tools/images/<category>/<acb_stem>.png
+        2. If not found, performs a keyword search within all image subdirectories.
+        """
+        # --- 1. Try the direct, fast path first ---
+        direct_path = TOOLS_DIR / "images" / image_folder / f"{acb_stem}.png"
+        if direct_path.exists():
+            return direct_path
+
+        # --- 2. If not found, perform a smarter keyword search ---
+        # Build a cache of all image files on the first run
+        if self._image_file_cache is None:
+            self._image_file_cache = list((TOOLS_DIR / "images").rglob("*.png"))
+
+        # Prepare keywords from the friendly name (e.g., "Ocean View" -> ["ocean", "view"])
+        # Also remove characters that might be in filenames but not titles
+        keywords = friendly_name.lower().replace(":", "").replace("-", "").split()
+        if not keywords:
+            return "" # No keywords to search for
+
+        possible_matches = []
+        # Search the cached file list
+        for image_path in self._image_file_cache:
+            filename_lower = image_path.name.lower()
+            # Check if all keywords are present in the filename
+            if all(keyword in filename_lower for keyword in keywords):
+                possible_matches.append(image_path)
+
+        # --- 3. If we have matches, find the best one ---
+        if possible_matches:
+            # The best match is likely the one with the shortest filename.
+            # e.g., for "Sonic", "sonic.png" is a better match than "metalsonic.png".
+            best_match = min(possible_matches, key=lambda p: len(p.name))
+            return best_match
+            
+        # --- 3. If still not found, return an empty path ---
+        return ""
+
+    def _create_selection_screen(self, layout):
+        """Creates the initial screen with tabs for selecting a music pack."""
+        tab_widget = QTabWidget()
+        layout.addWidget(tab_widget)
+
+        # Define categories and their image subfolders
+        categories = {
+            "Stages": ("BGM_STG1", "stages"),
+            "CrossWorlds": ("BGM_STG2", "crossworlds"),
+            "DLC Stages": ("BGM_EXTND", "dlc"),
+            "Menus": ("BGM", "menus"),
+            "Voices": ("VOICE_", "voices"),
+            "Misc": ("SE_", "misc"),
+        }
+
+        # Create a tab for each category
+        for tab_name, (prefix, image_folder) in categories.items():
+            scroll_area = QScrollArea()
+            scroll_area.setWidgetResizable(True)
+            tab_content = QWidget()
+            grid_layout = QGridLayout(tab_content)
+            grid_layout.setSpacing(15)
+            scroll_area.setWidget(tab_content)
+            tab_widget.addTab(scroll_area, tab_name)
+
+            # Populate the tab with cards
+            col, row = 0, 0
+            for acb_stem, friendly_name in data.FRIENDLY_NAME_MAP.items():
+                # Special handling for menus to avoid including stages
+                if prefix == "BGM" and (acb_stem.startswith("BGM_STG") or acb_stem.startswith("BGM_EXTND")):
+                    continue
+                
+                # Special handling for guest characters to ensure they only appear in the Misc tab.
+                is_guest_char = acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA"]
+                if (tab_name == "Voices" and is_guest_char):
+                    continue
+                if acb_stem.startswith(prefix):
+                    image_path = self._find_image_path(acb_stem, friendly_name, image_folder)
+                    card = ImageCard(acb_stem, friendly_name, image_path)
+                    card.clicked.connect(self.on_card_selected)
+                    grid_layout.addWidget(card, row, col)
+                    col += 1
+                    if col >= 3: # 3 cards per row
+                        col = 0
+                        row += 1
+
+    def _create_editor_screen(self, main_layout):
+        """Creates the main editor widgets (Steps 1-3), initially hidden."""
+        back_button = QPushButton("⬅ Back to Selection")
+        back_button.clicked.connect(self.show_selection_screen)
+        main_layout.addWidget(back_button, 0, Qt.AlignmentFlag.AlignLeft)
+
         # --- Step 1: Unpack ---
         unpack_group = QGroupBox("Step 1: Select & Unpack ACB")
         main_layout.addWidget(unpack_group)
         unpack_layout = QVBoxLayout(unpack_group)
         
         acb_layout = QHBoxLayout()
-        acb_layout.addWidget(QLabel("ACB File:"))
+        acb_layout.addWidget(QLabel("Selected ACB File:"))
         self.acb_file_edit = QLineEdit()
         self.acb_file_edit.setReadOnly(True)
         acb_layout.addWidget(self.acb_file_edit)
@@ -156,9 +302,9 @@ class ModBuilderGUI(QMainWindow):
 
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
-        select_bgm_button = QPushButton("Select BGM...")
-        select_bgm_button.clicked.connect(self.select_common_bgm)
-        btn_layout.addWidget(select_bgm_button)
+        locate_file_button = QPushButton("Locate File...")
+        locate_file_button.clicked.connect(self.locate_acb_file)
+        btn_layout.addWidget(locate_file_button)
         self.unpack_button = QPushButton("Unpack")
         self.unpack_button.clicked.connect(self.unpack_acb)
         self.unpack_button.setEnabled(False)
@@ -190,11 +336,9 @@ class ModBuilderGUI(QMainWindow):
         stage_layout.setContentsMargins(0,0,0,0)
         self.scroll_layout.addWidget(self.stage_music_frame)
 
-        self.intro_track_vars = self._create_track_selector(stage_layout, "Intro Music")
-        stage_layout.addWidget(self._create_separator())
-        self.lap1_track_vars = self._create_track_selector(stage_layout, "Lap 1 Music")
-        stage_layout.addWidget(self._create_separator())
-        self.final_lap_track_vars = self._create_track_selector(stage_layout, "Final Lap Music")
+        self.intro_track_vars = TrackEditorWidget("Intro Music")
+        self.lap1_track_vars = TrackEditorWidget("Lap 1 Music")
+        self.final_lap_track_vars = TrackEditorWidget("Final Lap Music")
 
         # --- New Menu Music Frame ---
         # This single frame will be used for Menu, Voice, and DLC tracks
@@ -238,55 +382,84 @@ class ModBuilderGUI(QMainWindow):
         mod_name_layout.addWidget(self.show_pak_button)
         repack_layout.addLayout(mod_name_layout)
 
+    def on_card_selected(self, acb_stem, friendly_name):
+        """Handles the click event from an ImageCard."""
+        filepath = None
+
+        # 1. Try to find the file in the selected CriWare folder first.
+        if self.criware_folder_path:
+            potential_path = self.criware_folder_path / f"{acb_stem}.acb"
+            if potential_path.exists():
+                filepath = str(potential_path)
+                print(f"Found '{acb_stem}.acb' in CriWare folder.")
+            else:
+                print(f"Could not find '{acb_stem}.acb' in CriWare folder. Falling back to manual selection.")
+
+        # 2. If not found in CriWare folder, fall back to existing logic (cache or prompt).
+        if not filepath:
+            filepath = self._acb_path_cache.get(acb_stem)
+
+            # If the cached path is invalid or doesn't exist, clear it and prompt again.
+            if filepath and not Path(filepath).exists():
+                print(f"Cached path for {acb_stem} is invalid. Prompting for new file.")
+                filepath = None
+                del self._acb_path_cache[acb_stem]
+
+            # If no valid cached path, prompt the user.
+            if not filepath:
+                filepath = self._prompt_for_acb_file(acb_stem)
+                if filepath:
+                    # Store the newly selected path in the cache for this session.
+                    self._acb_path_cache[acb_stem] = filepath
+                else:
+                    # User cancelled the file dialog, so we do nothing.
+                    print("File selection cancelled.")
+                    return
+
+        # If we have a valid filepath (either from cache or prompt), proceed.
+        if filepath:
+            self.editor_screen.setVisible(True)
+            self.selection_screen.setVisible(False)
+
+            # Set the file and trigger auto-unpack
+            self.set_acb_file(filepath, auto_unpack=True)
+
     def _create_separator(self):
         line = QFrame()
         line.setFrameShape(QFrame.Shape.HLine)
         line.setFrameShadow(QFrame.Shadow.Sunken)
         return line
 
-    def _create_track_selector(self, parent_layout, label_text, show_loop_options=True):
-        """Helper to create a file selection and loop point widget group."""
-        frame = QWidget()
-        layout = QVBoxLayout(frame)
-        layout.setContentsMargins(0,0,0,0)
+    def load_settings(self):
+        """Loads settings from settings.ini."""
+        if not self.settings_file.exists():
+            print("settings.ini not found. Using default settings.")
+            return
 
-        browse_layout = QHBoxLayout()
-        browse_layout.addWidget(QLabel(label_text))
-        path_edit = DropLineEdit()
-        path_edit.setReadOnly(False) # Allow pasting
-        browse_layout.addWidget(path_edit)
-        browse_button = QPushButton("Browse...")
-        browse_layout.addWidget(browse_button)
-        layout.addLayout(browse_layout)
+        self.config.read(self.settings_file)
+        if 'Settings' in self.config:
+            path_str = self.config['Settings'].get('criware_folder', '')
+            if path_str:
+                self.criware_folder_path = Path(path_str)
+                print(f"Loaded CriWare folder path: {self.criware_folder_path}")
 
-        parent_layout.addWidget(frame)
+    def save_settings(self):
+        """Saves current settings to settings.ini."""
+        if 'Settings' not in self.config:
+            self.config.add_section('Settings')
+        path_str = str(self.criware_folder_path) if self.criware_folder_path else ""
+        self.config['Settings']['criware_folder'] = path_str
+        with open(self.settings_file, 'w') as configfile:
+            self.config.write(configfile)
+        print(f"Saved settings to {self.settings_file}.")
 
-        var_dict = {
-            'path': path_edit,
-            'loop': None,
-            'start': None,
-            'end': None
-        }
+    def check_tools(self):
+        missing_tools = self.logic.check_tools()
 
-        if show_loop_options:
-            loop_group = QGroupBox("Loop Points (samples)")
-            loop_group.setCheckable(True)
-            loop_group.setChecked(False)
-            loop_layout = QHBoxLayout(loop_group)
-            loop_layout.addWidget(QLabel("Start:"))
-            loop_start_edit = QLineEdit()
-            loop_layout.addWidget(loop_start_edit)
-            loop_layout.addWidget(QLabel("End:"))
-            loop_end_edit = QLineEdit()
-            loop_layout.addWidget(loop_end_edit)
-            layout.addWidget(loop_group)
-
-            var_dict['loop'] = loop_group
-            var_dict['start'] = loop_start_edit
-            var_dict['end'] = loop_end_edit
-
-        browse_button.clicked.connect(lambda: self._select_wav_file(path_edit))
-        return var_dict
+    def show_selection_screen(self):
+        self.selection_screen.setVisible(True)
+        self.editor_screen.setVisible(False)
+        self.setWindowTitle("CrossWorlds Music Mod Builder - Select a Category")
 
     def check_tools(self):
         missing_tools = self.logic.check_tools()
@@ -295,9 +468,9 @@ class ModBuilderGUI(QMainWindow):
             self.close()
         
         # Hide loop widgets on startup
-        self.intro_track_vars['loop'].setChecked(False)
-        self.lap1_track_vars['loop'].setChecked(False)
-        self.final_lap_track_vars['loop'].setChecked(False)
+        self.intro_track_vars.loop_checkbox.setChecked(False)
+        self.lap1_track_vars.loop_checkbox.setChecked(False)
+        self.final_lap_track_vars.loop_checkbox.setChecked(False)
 
     def check_for_updates(self):
         """Initiates a background check for a new version on GitHub."""
@@ -374,6 +547,12 @@ class ModBuilderGUI(QMainWindow):
         elif acb_stem == "SE_EXTND10_CHARA": # Miku - check this before SPECIAL_TRACK_MAP
             track_dict = data.VOICE_EXTND10_CHARA_TRACKS
             is_voice_acb = True # Treat her like a voice ACB for UI purposes
+        elif acb_stem == "SE_EXTND11_CHARA": # Joker
+            track_dict = data.VOICE_EXTND11_CHARA_TRACKS
+            is_voice_acb = True
+        elif acb_stem == "SE_EXTND12_CHARA": # Ichiban
+            track_dict = data.VOICE_EXTND12_CHARA_TRACKS
+            is_voice_acb = True # Treat her like a voice ACB for UI purposes
         elif acb_stem == "BGM_EXTND04": # Minecraft uses its own full dictionary
             track_dict = data.DLC_MINECRAFT_TRACKS
         elif acb_stem == "SE_COURSE":
@@ -397,9 +576,9 @@ class ModBuilderGUI(QMainWindow):
 
         show_loops = not is_voice_acb # No loops for voice lines
         for label, hca_name in track_dict.items():
-            self.special_track_vars[hca_name] = self._create_track_selector(self.special_track_frame.layout(), label, show_loop_options=show_loops)
-            if hca_name != list(track_dict.values())[-1]:
-                self.special_track_frame.layout().addWidget(self._create_separator())
+            editor_widget = TrackEditorWidget(label, show_loop_options=show_loops)
+            self.special_track_vars[hca_name] = editor_widget
+            self.special_track_frame.layout().addWidget(editor_widget)
 
     def _filter_special_lines(self, text):
         """Hides/shows voice line widgets based on the search text."""
@@ -411,16 +590,11 @@ class ModBuilderGUI(QMainWindow):
             widget = layout.itemAt(i).widget()
             if widget is None or widget == self.voice_search_bar:
                 continue
-
-            label = widget.findChild(QLabel)
-            if label:
-                is_match = search_text in label.text().lower()
+            
+            # Check the title label of our custom widget
+            if isinstance(widget, TrackEditorWidget):
+                is_match = search_text in widget.title_label.text().lower()
                 widget.setVisible(is_match)
-                
-                # Also hide/show the separator that might be after it
-                next_item = layout.itemAt(i + 1)
-                if next_item and isinstance(next_item.widget(), QFrame):
-                    next_item.widget().setVisible(is_match)
 
     def run_command_threaded(self, target_func, on_complete, on_error, args=(), kwargs=None):
         """Runs a command in a separate thread to avoid freezing the GUI."""
@@ -453,32 +627,25 @@ class ModBuilderGUI(QMainWindow):
         self.repack_button.setEnabled(bool(self._unpacked_folder))
         self.pak_button.setEnabled(bool(self._unpacked_folder))
 
-    def _select_wav_file(self, path_edit):
+    def _prompt_for_acb_file(self, acb_filename_stem):
+        """Opens a file dialog to locate an ACB file and returns the selected path or None."""
+        filter_str = f"Specific ACB ({acb_filename_stem}.acb);;All ACB files (*.acb);;All files (*.*)"
+
         filepath, _ = QFileDialog.getOpenFileName(
             self,
-            caption="Select Audio File",
-            filter="Audio Files (*.wav *.mp3 *.flac *.ogg *.m4a);;All files (*.*)",
+            caption=f"Locate {acb_filename_stem}.acb (extracted with FModel)",
+            filter=filter_str,
+            dir=str(Path.cwd())
         )
+        return filepath if filepath else None
+
+    def locate_acb_file(self):
+        """Handles the 'Locate File...' button click in the editor screen."""
+        acb_filename_stem = Path(self._acb_file).stem if self._acb_file else "game"
+
+        filepath = self._prompt_for_acb_file(acb_filename_stem)
         if filepath:
-            path_edit.setText(filepath)
-
-    def select_common_bgm(self):
-        selector = BGMSelectorWindow(self)
-        if selector.exec():
-            acb_filename = selector.result
-            if not acb_filename:
-                return
-
-            # Instruct the user to find the file they extracted.
-            filepath, _ = QFileDialog.getOpenFileName(
-                self,
-                caption=f"Locate {acb_filename} (extracted with FModel)",
-                filter=f"ACB files (*{acb_filename});;All files (*.*)",
-                dir=str(Path.cwd())
-            )
-
-            if filepath:
-                self.set_acb_file(filepath)
+            self.set_acb_file(filepath, auto_unpack=False) # Don't auto-unpack when using the button
 
     def set_acb_file(self, filepath):
         """Central function to set the ACB file and reset the UI state."""
@@ -488,22 +655,23 @@ class ModBuilderGUI(QMainWindow):
         
         # Update window title with friendly name
         acb_stem = Path(filepath).stem
-        friendly_name = data.FRIENDLY_NAME_MAP.get(acb_stem) 
-        if friendly_name:
-            self.setWindowTitle(f"{self.base_title} - [{friendly_name}]")
-        else:
-            self.setWindowTitle(self.base_title)
+        if filepath: # Only update title if a file is actually set
+            friendly_name = data.FRIENDLY_NAME_MAP.get(acb_stem)
+            if friendly_name:
+                self.setWindowTitle(f"{self.base_title} - [{friendly_name}]")
+            else:
+                self.setWindowTitle(f"{self.base_title} - [{acb_stem}]")
 
         # Reset subsequent steps
         self._unpacked_folder = ""
         self.convert_button.setEnabled(False)
 
-        self.intro_track_vars['path'].setText('')
-        self.lap1_track_vars['path'].setText('')
-        self.final_lap_track_vars['path'].setText('')
-        self.intro_track_vars['loop'].setChecked(False)
-        self.lap1_track_vars['loop'].setChecked(False)
-        self.final_lap_track_vars['loop'].setChecked(False)
+        self.intro_track_vars.path_edit.setText('')
+        self.lap1_track_vars.path_edit.setText('')
+        self.final_lap_track_vars.path_edit.setText('')
+        self.intro_track_vars.loop_checkbox.setChecked(False)
+        self.lap1_track_vars.loop_checkbox.setChecked(False)
+        self.final_lap_track_vars.loop_checkbox.setChecked(False)
 
         # Hide conversion options and show the placeholder text
         self.stage_music_frame.setVisible(False)
@@ -514,9 +682,9 @@ class ModBuilderGUI(QMainWindow):
 
         # Clear special track vars, they will be repopulated
         for var_dict in list(self.special_track_vars.values()):
-            var_dict['path'].setText('')
-            if var_dict.get('loop'):
-                var_dict['loop'].setChecked(False)
+            var_dict.path_edit.setText('')
+            if var_dict.loop_checkbox:
+                var_dict.loop_checkbox.setChecked(False)
 
         self.repack_button.setEnabled(False)
         self.pak_button.setEnabled(False)
@@ -525,16 +693,87 @@ class ModBuilderGUI(QMainWindow):
         acb_path = Path(filepath)
         acb_stem = acb_path.stem
 
-        if acb_stem.startswith("VOICE_") or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_EXTND10_CHARA" or acb_stem == "SE_COURSE":
+        if acb_stem.startswith("VOICE_") or acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA"] or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_COURSE":
             self.special_track_frame.setVisible(True)
             self._populate_special_track_frame(acb_stem)
         else:
             self.stage_music_frame.setVisible(True)
+            # Add widgets to layout if not already there
+            if self.stage_music_frame.layout().count() == 0:
+                self.stage_music_frame.layout().addWidget(self.intro_track_vars)
+                self.stage_music_frame.layout().addWidget(self.lap1_track_vars)
+                self.stage_music_frame.layout().addWidget(self.final_lap_track_vars)
+
             if acb_path.stem.startswith("BGM_STG2"):
-                self.intro_track_vars['path'].parent().setVisible(False)
+                self.intro_track_vars.setVisible(False)
             else:
-                self.intro_track_vars['path'].parent().setVisible(True)
-    
+                self.intro_track_vars.setVisible(True)
+
+    def set_acb_file(self, filepath, auto_unpack=False):
+        """Central function to set the ACB file and reset the UI state."""
+        self._acb_file = filepath
+        self.acb_file_edit.setText(filepath)
+        self.unpack_button.setEnabled(True)
+        
+        # Update window title with friendly name
+        acb_stem = Path(filepath).stem
+        if filepath: # Only update title if a file is actually set
+            friendly_name = data.FRIENDLY_NAME_MAP.get(acb_stem)
+            if friendly_name:
+                self.setWindowTitle(f"{self.base_title} - [{friendly_name}]")
+            else:
+                self.setWindowTitle(f"{self.base_title} - [{acb_stem}]")
+
+        # Reset subsequent steps
+        self._unpacked_folder = ""
+        self.convert_button.setEnabled(False)
+
+        self.intro_track_vars.path_edit.setText('')
+        self.lap1_track_vars.path_edit.setText('')
+        self.final_lap_track_vars.path_edit.setText('')
+        self.intro_track_vars.loop_checkbox.setChecked(False)
+        self.lap1_track_vars.loop_checkbox.setChecked(False)
+        self.final_lap_track_vars.loop_checkbox.setChecked(False)
+
+        # Hide conversion options and show the placeholder text
+        self.stage_music_frame.setVisible(False)
+        self.special_track_frame.setVisible(False)
+        self.scroll_area.setVisible(False)
+        self.convert_button.setVisible(False)
+        self.unpack_first_label.setVisible(True)
+
+        # Clear special track vars, they will be repopulated
+        for var_dict in list(self.special_track_vars.values()):
+            var_dict.path_edit.setText('')
+            if var_dict.loop_checkbox:
+                var_dict.loop_checkbox.setChecked(False)
+
+        self.repack_button.setEnabled(False)
+        self.pak_button.setEnabled(False)
+
+        # Show/hide widgets based on filename
+        acb_path = Path(filepath)
+        acb_stem = acb_path.stem
+
+        if acb_stem.startswith("VOICE_") or acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA"] or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_COURSE":
+            self.special_track_frame.setVisible(True)
+            self._populate_special_track_frame(acb_stem)
+        else:
+            self.stage_music_frame.setVisible(True)
+            # Add widgets to layout if not already there
+            if self.stage_music_frame.layout().count() == 0:
+                self.stage_music_frame.layout().addWidget(self.intro_track_vars)
+                self.stage_music_frame.layout().addWidget(self.lap1_track_vars)
+                self.stage_music_frame.layout().addWidget(self.final_lap_track_vars)
+
+            if acb_path.stem.startswith("BGM_STG2"):
+                self.intro_track_vars.setVisible(False)
+            else:
+                self.intro_track_vars.setVisible(True)
+
+        if auto_unpack and self._acb_file:
+            QTimer.singleShot(100, self.unpack_acb)
+
     def _get_original_file_index(self, hca_filename):
         """Helper to find the 0-based index of a specific HCA filename in the sorted original_files list."""
         try:
@@ -577,24 +816,25 @@ class ModBuilderGUI(QMainWindow):
         self.status_bar.showMessage(f"Preparing to convert audio for '{acb_path.stem}'...")
 
         # --- Prepare list of conversions to run ---
+        acb_stem = acb_path.stem
         tasks = [] # hca_name, path, is_looping, start, end
-        if acb_path.stem.startswith("VOICE_") or acb_path.stem in data.SPECIAL_TRACK_MAP or acb_path.stem == "BGM_EXTND04" or acb_path.stem == "SE_EXTND10_CHARA" or acb_path.stem == "SE_COURSE":
+        if acb_stem.startswith("VOICE_") or acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA"] or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_COURSE":
             for hca_name, var_dict in self.special_track_vars.items():
-                if var_dict['path'].text():
-                    is_looping = var_dict.get('loop') and var_dict['loop'].isChecked()
-                    start_widget = var_dict.get('start')
-                    end_widget = var_dict.get('end')
+                if var_dict.path_edit.text():
+                    is_looping = var_dict.loop_checkbox and var_dict.loop_checkbox.isChecked()
+                    start_widget = var_dict.loop_start_edit
+                    end_widget = var_dict.loop_end_edit
                     start_text = start_widget.text() if start_widget else ""
                     end_text = end_widget.text() if end_widget else ""
 
-                    tasks.append((hca_name, var_dict['path'].text(), is_looping, start_text, end_text))
+                    tasks.append((hca_name, var_dict.path_edit.text(), is_looping, start_text, end_text))
         else: # Stage music
-            if self.intro_track_vars['path'].text():
-                tasks.append(("intro", self.intro_track_vars['path'].text(), self.intro_track_vars['loop'].isChecked(), self.intro_track_vars['start'].text(), self.intro_track_vars['end'].text()))
-            if self.lap1_track_vars['path'].text():
-                tasks.append(("lap1", self.lap1_track_vars['path'].text(), self.lap1_track_vars['loop'].isChecked(), self.lap1_track_vars['start'].text(), self.lap1_track_vars['end'].text()))
-            if self.final_lap_track_vars['path'].text():
-                tasks.append(("final_lap", self.final_lap_track_vars['path'].text(), self.final_lap_track_vars['loop'].isChecked(), self.final_lap_track_vars['start'].text(), self.final_lap_track_vars['end'].text()))
+            if self.intro_track_vars.path_edit.text():
+                tasks.append(("intro", self.intro_track_vars.path_edit.text(), self.intro_track_vars.loop_checkbox.isChecked(), self.intro_track_vars.loop_start_edit.text(), self.intro_track_vars.loop_end_edit.text()))
+            if self.lap1_track_vars.path_edit.text():
+                tasks.append(("lap1", self.lap1_track_vars.path_edit.text(), self.lap1_track_vars.loop_checkbox.isChecked(), self.lap1_track_vars.loop_start_edit.text(), self.lap1_track_vars.loop_end_edit.text()))
+            if self.final_lap_track_vars.path_edit.text():
+                tasks.append(("final_lap", self.final_lap_track_vars.path_edit.text(), self.final_lap_track_vars.loop_checkbox.isChecked(), self.final_lap_track_vars.loop_start_edit.text(), self.final_lap_track_vars.loop_end_edit.text()))
         
         print("The following files will be converted:")
         for name, wav_path_str, _, _, _ in tasks:
@@ -640,7 +880,7 @@ class ModBuilderGUI(QMainWindow):
         replacement_map = {}
 
         acb_stem = Path(self._acb_file).stem
-        is_special_acb_for_onetoone = acb_stem.startswith("VOICE_") or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_EXTND10_CHARA" or acb_stem == "SE_COURSE"
+        is_special_acb_for_onetoone = acb_stem.startswith("VOICE_") or acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA"] or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_COURSE"
         is_crossworlds = acb_stem.startswith("BGM_STG2")
 
         # --- Define Special Track Structures ---
@@ -779,6 +1019,15 @@ class ModBuilderGUI(QMainWindow):
             "Lycus - For Testing and Feedback\n"
         )
         QMessageBox.information(self, "Credits", credits_text)
+
+    def show_settings_dialog(self):
+        """Opens the settings dialog."""
+        dialog = SettingsDialog(self)
+        if dialog.exec(): # This is a blocking call
+            # OK was clicked, update the path in the main window
+            self.criware_folder_path = dialog._criware_path
+            self.save_settings() # Save immediately on change
+            print(f"CriWare folder path updated to: {self.criware_folder_path}")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

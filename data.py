@@ -26,33 +26,35 @@ BGM_DATA = {
         "EXTND05": "BiKiNi Bottom",
     },
     "Voice Lines": {
-        "SON": "Sonic the Hedgehog",
-        "TAI": "Miles 'Tails' Prower",
-        "KNU": "Knuckles the Echidna",
-        "AMY": "Amy Rose",
-        "CRE": "Cream the Rabbit",
-        "BIG": "Big the Cat",
-        "SHA": "Shadow the Hedgehog",
-        "ROU": "Rouge the Bat",
-        "OME": "E-123 Omega",
-        "SIL": "Silver the Hedgehog",
-        "BLA": "Blaze the Cat",
-        "VEC": "Vector the Crocodile",
-        "ESP": "Espio the Chameleon",
-        "CHA": "Charmy Bee",
+        "SON": "Sonic",
+        "TAI": "Tails",
+        "KNU": "Knuckles",
+        "AMY": "Amy",
+        "CRE": "Cream",
+        "BIG": "Big",
+        "SHA": "Shadow",
+        "ROU": "Rouge",
+        "OME": "Omega",
+        "SIL": "Silver",
+        "BLA": "Blaze",
+        "VEC": "Vector",
+        "ESP": "Espio",
+        "CHA": "Charmy",
         "ZAV": "Zavok",
         "ZAZ": "Zazz",
-        "EGG": "Dr. Eggman",
+        "EGG": "Eggman",
         "MET": "Metal Sonic",
         "EGP": "Egg Pawn",
         "SAG": "Sage",
-        "JET": "Jet the Hawk",
-        "WAV": "Wave the Swallow",
-        "STO": "Storm the Albatross",
-        "EXTND10_CHARA": "Hatsune Miku",
+        "JET": "Jet",
+        "WAV": "Wave",
+        "STO": "Storm",
     },
     "Misc": {
         "COURSE": "Racing SFX",
+        "EXTND10_CHARA": "Miku",
+        "EXTND11_CHARA": "Joker",
+        "EXTND12_CHARA": "Ichiban Kasuga",
     }
 }
 
@@ -100,6 +102,8 @@ SPECIAL_TRACK_MAP = {
     "BGM": MENU_BGM_TRACKS,
     "BGM_EXTND05": DLC_SPONGEBOB_TRACKS,
     "SE_EXTND10_CHARA": None, # Will be populated dynamically
+    "SE_EXTND11_CHARA": None, # Will be populated dynamically
+    "SE_EXTND12_CHARA": None, # Will be populated dynamically
     "SE_COURSE": None, # Will be populated dynamically
 }
 
@@ -131,6 +135,41 @@ VOICE_EXTND10_CHARA_TRACKS = {
     "25: Stunt 03": "00024",
     "26: Stunt 04": "00025",
     "27: Stunt 05": "00026",
+}
+
+VOICE_EXTND11_CHARA_TRACKS = {
+    "1: Character Select": "00000",
+    "2: Item Use 01": "00001",
+    "3: Item Use 02": "00002",
+    "4: Item Use 03": "00003",
+    "5: Item Use 04": "00004",
+    "6: Lobby Stamp 01": "00005",
+    "7: Lobby Stamp 02": "00006",
+    "8: Lobby Stamp 03": "00007",
+    "9: Lobby Stamp 04": "00008",
+    "10: Lobby Stamp 05": "00009",
+    "11: Lobby Stamp 06": "00010",
+    "12: Stunt Action 1": "00011",
+    "13: Stunt Action 2": "00012",
+    "14: Stunt": "00013",
+    "15: Dash 02": "00014",
+    "16: Dash 01": "00015",
+    "17: Dash 03": "00016",
+}
+
+VOICE_EXTND12_CHARA_TRACKS = {
+    "1: Lobby Stamp 04": "00000",
+    "2: Item Use": "00001",
+    "3: Stunt": "00002",
+    "4: Dash 03": "00003",
+    "5: Dash 01": "00004",
+    "6: Dash 02": "00005",
+    "7: Lobby Stamp 02": "00006",
+    "8: Character Select": "00007",
+    "9: Lobby Stamp 05": "00008",
+    "10: Lobby Stamp 03": "00009",
+    "11: Lobby Stamp 01": "00010",
+    "12: Lobby Stamp 06": "00011",
 }
 
 SE_COURSE_TRACKS = {
@@ -5833,11 +5872,6 @@ def _create_friendly_name_map():
     name_map.update({f"BGM_{k}": v for k, v in BGM_DATA["DLC Tracks"].items()})
     name_map.update({f"SE_{k}": v for k, v in BGM_DATA["Misc"].items()})
     name_map.update({f"VOICE_{k}": v for k, v in BGM_DATA["Voice Lines"].items()})
-    # Special handling for Miku as she's not a regular VOICE file
-    if "EXTND10_CHARA" in BGM_DATA["Voice Lines"]:
-        name_map["SE_EXTND10_CHARA"] = BGM_DATA["Voice Lines"].get("EXTND10_CHARA")
-    if "COURSE" in BGM_DATA["Voice Lines"]:
-        name_map["SE_COURSE"] = BGM_DATA["Voice Lines"].get("COURSE")
 
     name_map.update({k: v for k, v in BGM_DATA["Menu & System"].items()})
     return name_map
