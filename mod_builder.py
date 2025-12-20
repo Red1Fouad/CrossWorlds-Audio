@@ -927,6 +927,16 @@ class ModBuilderGUI(QMainWindow):
             if self.final_lap_track_vars.path_edit.text():
                 tasks.append(("final_lap", self.final_lap_track_vars.path_edit.text(), self.final_lap_track_vars.loop_checkbox.isChecked(), self.final_lap_track_vars.loop_start_edit.text(), self.final_lap_track_vars.loop_end_edit.text()))
         
+        # Validate loop points for commas
+        for name, _, is_looping, start, end in tasks:
+            if is_looping:
+                if ',' in start or ',' in end:
+                    QMessageBox.warning(self, "Invalid Loop Points", 
+                                        f"Error in track '{name}': Loop points cannot contain commas.\n\n"
+                                        f"Start: {start}\nEnd: {end}\n\n"
+                                        "Please remove the commas (e.g., change '1,234' to '1234') and try again.")
+                    return
+
         print("The following files will be converted:")
         for name, wav_path_str, _, _, _ in tasks:
             wav_path = Path(wav_path_str)
