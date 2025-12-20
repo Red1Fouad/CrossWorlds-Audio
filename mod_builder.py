@@ -8,7 +8,7 @@ import shutil
 try:
     from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel, QLineEdit,
                                    QPushButton, QFileDialog, QMessageBox, QTreeWidget, QTreeWidgetItem, QTabWidget, QGridLayout,
-                                   QScrollArea, QFrame, QMenuBar, QStatusBar)
+                                   QScrollArea, QFrame, QMenuBar, QStatusBar, QProgressBar)
     from PySide6.QtCore import Qt, QThread, Signal, QObject, QTimer
     from PySide6.QtGui import QDesktopServices, QShortcut, QKeySequence, QIcon
     from PySide6.QtCore import QUrl
@@ -29,6 +29,7 @@ SAMPLES_DIR = TOOLS_DIR / "samples"
 MUSIC_REF_PATH = SAMPLES_DIR / "music.wav"
 VOICE_SFX_REF_PATH = SAMPLES_DIR / "voice.wav"
 APP_VERSION = "1.4"
+SESSION_FILE = Path("session.json")
 GITHUB_REPO = "Red1Fouad/CrossWorlds-Audio"
 
 class Worker(QObject):
@@ -54,7 +55,7 @@ class ModBuilderGUI(QMainWindow):
         super().__init__()
         self.base_title = f"CrossWorlds Music Mod Builder v{APP_VERSION}"
         self.setWindowTitle("CrossWorlds Music Mod Builder - Select a Category")
-        self.resize(800, 750)
+        self.resize(1280, 720)
 
         # Set application icon
         self.setWindowIcon(QIcon("tools/ico.ico"))
@@ -63,12 +64,21 @@ class ModBuilderGUI(QMainWindow):
 
         self.config = configparser.ConfigParser()
         self.settings_file = Path("settings.ini")
+        self._track_file_cache = {}
+        self._current_acb_stem = None
 
         self.logic = ModLogic(TOOLS_DIR, OUTPUT_DIR)
 
         # --- Menu Bar ---
         menu_bar = self.menuBar()
         file_menu = menu_bar.addMenu("File")
+
+        # Add Recent Files submenu
+        self.recent_files_menu = file_menu.addMenu("Recent Files")
+        self.recent_files = [] # Will be populated by load_settings
+        self.MAX_RECENT_FILES = 10
+
+        file_menu.addSeparator()
         settings_action = file_menu.addAction("Settings...")
         settings_action.triggered.connect(self.show_settings_dialog)
 
@@ -113,6 +123,8 @@ class ModBuilderGUI(QMainWindow):
 
         # --- Load settings after UI is created ---
         self.load_settings()
+        self.load_session_data()
+        self.update_recent_files_menu()
         self.editor_screen.setVisible(False)
 
 
@@ -157,6 +169,8 @@ class ModBuilderGUI(QMainWindow):
     def closeEvent(self, event):
         """Clean up temporary folders on application close."""
         # Save settings before closing
+        self._capture_current_track_state()
+        self.save_session_data()
         self.save_settings()
 
         print("Cleaning up temporary folders...")
@@ -267,19 +281,31 @@ class ModBuilderGUI(QMainWindow):
                     card.clicked.connect(self.on_card_selected)
                     grid_layout.addWidget(card, row, col)
                     col += 1
-                    if col >= 3: # 3 cards per row
+                    if col >= 5: # 5 cards per row for 16:9
                         col = 0
                         row += 1
 
     def _create_editor_screen(self, main_layout):
         """Creates the main editor widgets (Steps 1-3), initially hidden."""
+        # Top Navigation Bar
+        nav_layout = QHBoxLayout()
         back_button = QPushButton("⬅ Back to Selection")
         back_button.clicked.connect(self.show_selection_screen)
-        main_layout.addWidget(back_button, 0, Qt.AlignmentFlag.AlignLeft)
+        nav_layout.addWidget(back_button, 0, Qt.AlignmentFlag.AlignLeft)
+        nav_layout.addStretch()
+        main_layout.addLayout(nav_layout)
+
+        # Main Content Layout (Split Left/Right)
+        content_layout = QHBoxLayout()
+        main_layout.addLayout(content_layout)
+
+        # --- Left Column (Steps 1 & 3) ---
+        left_column = QVBoxLayout()
+        content_layout.addLayout(left_column, 1) # Stretch 1
 
         # --- Step 1: Unpack ---
         unpack_group = QGroupBox("Step 1: Select & Unpack ACB")
-        main_layout.addWidget(unpack_group)
+        left_column.addWidget(unpack_group)
         unpack_layout = QVBoxLayout(unpack_group)
         
         acb_layout = QHBoxLayout()
@@ -300,14 +326,52 @@ class ModBuilderGUI(QMainWindow):
         btn_layout.addWidget(self.unpack_button)
         unpack_layout.addLayout(btn_layout)
 
-        # --- Step 2: Convert ---
+        self.unpack_progress = QProgressBar()
+        self.unpack_progress.setVisible(False)
+        unpack_layout.addWidget(self.unpack_progress)
+
+        # --- Step 3: Repack (formerly Step 4) ---
+        left_column.addSpacing(20)
+        repack_group = QGroupBox("Step 3: Repack & Create Mod")
+        left_column.addWidget(repack_group)
+        repack_layout = QVBoxLayout(repack_group)
+
+        self.repack_button = QPushButton("Repack ACB")
+        self.repack_button.clicked.connect(self.repack_acb)
+        self.repack_button.setEnabled(False)
+        repack_layout.addWidget(self.repack_button)
+
+        mod_name_layout = QHBoxLayout()
+        mod_name_layout.addWidget(QLabel("Mod Name:"))
+        self.mod_name_edit = QLineEdit(self._mod_name)
+        self.mod_name_edit.textChanged.connect(lambda text: setattr(self, '_mod_name', text))
+        mod_name_layout.addWidget(self.mod_name_edit)
+        repack_layout.addLayout(mod_name_layout)
+
+        pak_layout = QHBoxLayout()
+        self.pak_button = QPushButton("Create .pak")
+        self.pak_button.clicked.connect(self.create_pak)
+        self.pak_button.setEnabled(False)
+        pak_layout.addWidget(self.pak_button)
+        self.show_pak_button = QPushButton("Show Pak Output")
+        self.show_pak_button.clicked.connect(self.show_pak_output)
+        pak_layout.addWidget(self.show_pak_button)
+        repack_layout.addLayout(pak_layout)
+
+        left_column.addStretch() # Push items to top
+
+        # --- Right Column (Step 2) ---
+        right_column = QVBoxLayout()
+        content_layout.addLayout(right_column, 2) # Stretch 2 (Wider)
+
         convert_group = QGroupBox("Step 2: Convert Audio")
-        main_layout.addWidget(convert_group)
+        right_column.addWidget(convert_group)
         convert_outer_layout = QVBoxLayout(convert_group)
 
         # Add a placeholder label
         self.unpack_first_label = QLabel("Please select and unpack an ACB file in Step 1 to see conversion options.")
         self.unpack_first_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.unpack_first_label.setWordWrap(True)
         convert_outer_layout.addWidget(self.unpack_first_label)
 
         # Create a scroll area
@@ -325,13 +389,21 @@ class ModBuilderGUI(QMainWindow):
         stage_layout.setContentsMargins(0,0,0,0)
         self.scroll_layout.addWidget(self.stage_music_frame)
 
+        # Initialize Stage Track Editors
         self.intro_track_vars = TrackEditorWidget("Intro Music")
         self.intro_track_vars.play_requested.connect(self.on_play_requested)
+        self.intro_track_vars.normalize_requested.connect(lambda path: self._update_path_after_normalize(self.intro_track_vars, path, 'music'))
+        stage_layout.addWidget(self.intro_track_vars)
+
         self.lap1_track_vars = TrackEditorWidget("Lap 1 Music")
-        self.intro_track_vars.normalize_requested.connect(lambda path: self.on_normalize_requested(path, 'music'))
         self.lap1_track_vars.play_requested.connect(self.on_play_requested)
+        self.lap1_track_vars.normalize_requested.connect(lambda path: self._update_path_after_normalize(self.lap1_track_vars, path, 'music'))
+        stage_layout.addWidget(self.lap1_track_vars)
+
         self.final_lap_track_vars = TrackEditorWidget("Final Lap Music")
         self.final_lap_track_vars.play_requested.connect(self.on_play_requested)
+        self.final_lap_track_vars.normalize_requested.connect(lambda path: self._update_path_after_normalize(self.final_lap_track_vars, path, 'music'))
+        stage_layout.addWidget(self.final_lap_track_vars)
 
         self.all_track_editors.extend([self.intro_track_vars, self.lap1_track_vars, self.final_lap_track_vars])
         # --- New Menu Music Frame ---
@@ -345,36 +417,21 @@ class ModBuilderGUI(QMainWindow):
 
         self.scroll_layout.addStretch()
 
-        # Convert button is outside the scrollable area
+        # Buttons outside the scrollable area
+        convert_btn_layout = QHBoxLayout()
+        
+        self.clear_all_button = QPushButton("Clear All")
+        self.clear_all_button.clicked.connect(self.clear_all_tracks)
+        self.clear_all_button.setVisible(False)
+        convert_btn_layout.addWidget(self.clear_all_button)
+
         self.convert_button = QPushButton("Convert Selected Audio")
         self.convert_button.clicked.connect(self.convert_audio)
         self.convert_button.setEnabled(False)
         self.convert_button.setVisible(False)
-        convert_outer_layout.addWidget(self.convert_button, 0, Qt.AlignmentFlag.AlignCenter)
-
-        # --- Step 3: Repack (formerly Step 4) ---
-        repack_group = QGroupBox("Step 3: Repack & Create Mod")
-        main_layout.addWidget(repack_group)
-        repack_layout = QVBoxLayout(repack_group)
-
-        self.repack_button = QPushButton("Repack ACB")
-        self.repack_button.clicked.connect(self.repack_acb)
-        self.repack_button.setEnabled(False)
-        repack_layout.addWidget(self.repack_button)
-
-        mod_name_layout = QHBoxLayout()
-        mod_name_layout.addWidget(QLabel("Mod Name:"))
-        self.mod_name_edit = QLineEdit(self._mod_name)
-        self.mod_name_edit.textChanged.connect(lambda text: setattr(self, '_mod_name', text))
-        mod_name_layout.addWidget(self.mod_name_edit)
-        self.pak_button = QPushButton("Create .pak")
-        self.pak_button.clicked.connect(self.create_pak)
-        self.pak_button.setEnabled(False)
-        mod_name_layout.addWidget(self.pak_button)
-        self.show_pak_button = QPushButton("Show Pak Output")
-        self.show_pak_button.clicked.connect(self.show_pak_output)
-        mod_name_layout.addWidget(self.show_pak_button)
-        repack_layout.addLayout(mod_name_layout)
+        convert_btn_layout.addWidget(self.convert_button)
+        
+        convert_outer_layout.addLayout(convert_btn_layout)
 
     def on_card_selected(self, acb_stem, friendly_name):
         """Handles the click event from an ImageCard."""
@@ -412,6 +469,7 @@ class ModBuilderGUI(QMainWindow):
 
         # If we have a valid filepath (either from cache or prompt), proceed.
         if filepath:
+            self.add_to_recent_files(filepath)
             self.editor_screen.setVisible(True)
             self.selection_screen.setVisible(False)
 
@@ -436,6 +494,12 @@ class ModBuilderGUI(QMainWindow):
             if path_str:
                 self.criware_folder_path = Path(path_str)
                 print(f"Loaded CriWare folder path: {self.criware_folder_path}")
+            
+            recent_files_str = self.config['Settings'].get('recent_files', '')
+            if recent_files_str:
+                # Filter out any empty strings that might result from splitting
+                self.recent_files = [p for p in recent_files_str.split(',') if p]
+                print(f"Loaded {len(self.recent_files)} recent files.")
 
     def save_settings(self):
         """Saves current settings to settings.ini."""
@@ -443,9 +507,28 @@ class ModBuilderGUI(QMainWindow):
             self.config.add_section('Settings')
         path_str = str(self.criware_folder_path) if self.criware_folder_path else ""
         self.config['Settings']['criware_folder'] = path_str
+
+        # Limit to max and save
+        self.config['Settings']['recent_files'] = ",".join(self.recent_files[:self.MAX_RECENT_FILES])
         with open(self.settings_file, 'w') as configfile:
             self.config.write(configfile)
         print(f"Saved settings to {self.settings_file}.")
+
+    def load_session_data(self):
+        """Loads the session data (track paths) from JSON."""
+        if SESSION_FILE.exists():
+            try:
+                with open(SESSION_FILE, 'r') as f:
+                    self._track_file_cache = json.load(f)
+                print(f"Loaded session data from {SESSION_FILE}")
+            except Exception as e:
+                print(f"Failed to load session data: {e}")
+
+    def save_session_data(self):
+        """Saves the session data to JSON."""
+        with open(SESSION_FILE, 'w') as f:
+            json.dump(self._track_file_cache, f, indent=2)
+        print(f"Saved session data to {SESSION_FILE}")
 
     def check_tools(self):
         missing_tools = self.logic.check_tools()
@@ -630,6 +713,7 @@ class ModBuilderGUI(QMainWindow):
         self.convert_button.setEnabled(bool(self._unpacked_folder))
         self.repack_button.setEnabled(bool(self._unpacked_folder))
         self.pak_button.setEnabled(bool(self._unpacked_folder))
+        self.unpack_progress.setVisible(False)
 
     def stop_all_audio(self):
         """Stops playback on all track editor widgets."""
@@ -677,6 +761,12 @@ class ModBuilderGUI(QMainWindow):
         except Exception as e:
             self.on_command_error(e)
 
+    def _update_path_after_normalize(self, editor, path, track_type):
+        """Helper to update the text field after normalization."""
+        new_path = self.on_normalize_requested(path, track_type)
+        if new_path:
+            editor.path_edit.setText(new_path)
+
     def _prompt_for_acb_file(self, acb_filename_stem):
         """Opens a file dialog to locate an ACB file and returns the selected path or None."""
         filter_str = f"Specific ACB ({acb_filename_stem}.acb);;All ACB files (*.acb);;All files (*.*)"
@@ -691,7 +781,15 @@ class ModBuilderGUI(QMainWindow):
 
     def set_acb_file(self, filepath, auto_unpack=False):
         """Central function to set the ACB file and reset the UI state."""
+        # Capture state of the PREVIOUS ACB before switching
+        self._capture_current_track_state()
+
         self._acb_file = filepath
+        if filepath:
+            self._current_acb_stem = Path(filepath).stem
+        else:
+            self._current_acb_stem = None
+
         self.acb_file_edit.setText(filepath)
         self.unpack_button.setEnabled(True)
         
@@ -720,6 +818,7 @@ class ModBuilderGUI(QMainWindow):
         self.special_track_frame.setVisible(False)
         self.scroll_area.setVisible(False)
         self.convert_button.setVisible(False)
+        self.clear_all_button.setVisible(False)
         self.unpack_first_label.setVisible(True)
 
         # Clear special track vars, they will be repopulated
@@ -740,19 +839,13 @@ class ModBuilderGUI(QMainWindow):
             self._populate_special_track_frame(acb_stem)
         else:
             self.stage_music_frame.setVisible(True)
-            # Add widgets to layout if not already there
-            if self.stage_music_frame.layout().count() == 0:
-                self.stage_music_frame.layout().addWidget(self.intro_track_vars)
-                self.intro_track_vars.normalize_requested.connect(lambda path: self.intro_track_vars.path_edit.setText(self.on_normalize_requested(path, 'music')))
-                self.stage_music_frame.layout().addWidget(self.lap1_track_vars)
-                self.lap1_track_vars.normalize_requested.connect(lambda path: self.lap1_track_vars.path_edit.setText(self.on_normalize_requested(path, 'music')))
-                self.stage_music_frame.layout().addWidget(self.final_lap_track_vars)
-                self.final_lap_track_vars.normalize_requested.connect(lambda path: self.final_lap_track_vars.path_edit.setText(self.on_normalize_requested(path, 'music')))
-
             if acb_path.stem.startswith("BGM_STG2"):
                 self.intro_track_vars.setVisible(False)
             else:
                 self.intro_track_vars.setVisible(True)
+
+        # Restore state for the NEW ACB
+        self._restore_track_state()
 
         if auto_unpack and self._acb_file:
             QTimer.singleShot(100, self.unpack_acb)
@@ -763,6 +856,7 @@ class ModBuilderGUI(QMainWindow):
 
         filepath = self._prompt_for_acb_file(acb_filename_stem)
         if filepath:
+            self.add_to_recent_files(filepath)
             self.set_acb_file(filepath, auto_unpack=False) # Don't auto-unpack when using the button
 
     def _get_original_file_index(self, hca_filename):
@@ -777,9 +871,14 @@ class ModBuilderGUI(QMainWindow):
         print(f"--- Step 1: Unpacking '{acb_path.name}' ---")
         self.status_bar.showMessage(f"Unpacking '{acb_path.name}'...")
         self.unpack_button.setEnabled(False)
+        
+        self.unpack_progress.setRange(0, 0) # Indeterminate mode
+        self.unpack_progress.setVisible(True)
+        
         self.run_command_threaded(self.logic.unpack_acb, self.on_unpack_complete, self.on_command_error, args=(acb_path,))
 
     def on_unpack_complete(self, result):
+        self.unpack_progress.setVisible(False)
         print("Unpacking complete.")
         self.status_bar.showMessage("Unpacking complete. Ready for audio conversion.")
         self._unpacked_folder = result
@@ -793,6 +892,7 @@ class ModBuilderGUI(QMainWindow):
         self.unpack_first_label.setVisible(False)
         self.scroll_area.setVisible(True)
         self.convert_button.setVisible(True)
+        self.clear_all_button.setVisible(True)
 
         QMessageBox.information(self, "Success", f"Unpacked to '{unpacked_path.name}'")
         self.convert_button.setEnabled(True)
@@ -850,6 +950,53 @@ class ModBuilderGUI(QMainWindow):
         self.status_bar.showMessage("Audio conversion complete. Ready to repack.")
         QMessageBox.information(self, "Success", "Audio conversion complete!")
         self.reset_ui_state()
+
+    def clear_all_tracks(self):
+        """Clears all input fields in the currently active track editors."""
+        reply = QMessageBox.question(self, "Clear All", "Are you sure you want to clear all selected files?",
+                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if reply == QMessageBox.StandardButton.Yes:
+            for editor in self.all_track_editors:
+                editor.path_edit.clear()
+                if editor.loop_checkbox:
+                    editor.loop_checkbox.setChecked(False)
+            self.status_bar.showMessage("All tracks cleared.")
+
+    def _capture_current_track_state(self):
+        """Saves the current UI state to the cache for the current ACB."""
+        if not self._current_acb_stem:
+            return
+
+        state = {}
+        for editor in self.all_track_editors:
+            path = editor.path_edit.text()
+            # Save state even if empty, to remember that it was cleared
+            track_data = {
+                "path": path,
+                "loop_enabled": editor.loop_checkbox.isChecked() if editor.loop_checkbox else False,
+                "loop_start": editor.loop_start_edit.text() if editor.loop_start_edit else "",
+                "loop_end": editor.loop_end_edit.text() if editor.loop_end_edit else ""
+            }
+            state[editor.original_label_text] = track_data
+        
+        self._track_file_cache[self._current_acb_stem] = state
+
+    def _restore_track_state(self):
+        """Restores UI state from cache for the current ACB."""
+        if not self._current_acb_stem or self._current_acb_stem not in self._track_file_cache:
+            return
+        
+        state = self._track_file_cache[self._current_acb_stem]
+        for editor in self.all_track_editors:
+            if editor.original_label_text in state:
+                data = state[editor.original_label_text]
+                editor.path_edit.setText(data.get("path", ""))
+                if editor.loop_checkbox:
+                    editor.loop_checkbox.setChecked(data.get("loop_enabled", False))
+                if editor.loop_start_edit:
+                    editor.loop_start_edit.setText(data.get("loop_start", ""))
+                if editor.loop_end_edit:
+                    editor.loop_end_edit.setText(data.get("loop_end", ""))
 
     def populate_orig_listbox(self):
         """This function now just validates the original file structure."""
@@ -1010,6 +1157,61 @@ class ModBuilderGUI(QMainWindow):
             "Lycus - For Testing and Feedback\n"
         )
         QMessageBox.information(self, "Credits", credits_text)
+
+    def add_to_recent_files(self, filepath):
+        """Adds a file to the top of the recent files list."""
+        if not filepath:
+            return
+        
+        # Remove if it already exists to avoid duplicates and move to top
+        if filepath in self.recent_files:
+            self.recent_files.remove(filepath)
+        
+        # Add to the top of the list
+        self.recent_files.insert(0, filepath)
+        
+        # Limit the list size
+        self.recent_files = self.recent_files[:self.MAX_RECENT_FILES]
+        
+        # Update the menu
+        self.update_recent_files_menu()
+
+    def update_recent_files_menu(self):
+        """Clears and repopulates the 'Recent Files' menu."""
+        self.recent_files_menu.clear()
+        
+        if not self.recent_files:
+            empty_action = self.recent_files_menu.addAction("No Recent Files")
+            empty_action.setEnabled(False)
+        else:
+            for filepath in self.recent_files:
+                # Use a lambda to capture the filepath for the slot
+                action = self.recent_files_menu.addAction(filepath)
+                action.triggered.connect(lambda checked=False, fp=filepath: self.open_recent_file(fp))
+
+        self.recent_files_menu.addSeparator()
+        clear_action = self.recent_files_menu.addAction("Clear Recent Files")
+        clear_action.triggered.connect(self.clear_recent_files)
+
+    def open_recent_file(self, filepath):
+        """Opens a file from the recent files menu."""
+        path = Path(filepath)
+        if not path.exists():
+            QMessageBox.warning(self, "File Not Found", f"The file '{filepath}' could not be found. It will be removed from the recent files list.")
+            self.recent_files.remove(filepath)
+            self.update_recent_files_menu()
+            return
+            
+        # This logic is similar to on_card_selected
+        self.add_to_recent_files(filepath) # Also add it here to move it to the top
+        self.editor_screen.setVisible(True)
+        self.selection_screen.setVisible(False)
+        self.set_acb_file(filepath, auto_unpack=True)
+
+    def clear_recent_files(self):
+        """Clears the recent files list and menu."""
+        self.recent_files.clear()
+        self.update_recent_files_menu()
 
     def show_settings_dialog(self):
         """Opens the settings dialog."""

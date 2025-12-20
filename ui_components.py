@@ -130,6 +130,7 @@ class TrackEditorWidget(QFrame):
         super().__init__(parent)
         self.setFrameShape(QFrame.Shape.StyledPanel)
         self.setObjectName("TrackEditorWidget")
+        self.original_label_text = label_text
 
         # --- Data Storage ---
         self.path_edit = None
@@ -151,11 +152,9 @@ class TrackEditorWidget(QFrame):
         # --- Header (Clickable to collapse) ---
         self.header_frame = QFrame()
         self.header_frame.setObjectName("HeaderFrame")
-        self.header_frame.setCursor(Qt.CursorShape.PointingHandCursor)
         header_layout = QHBoxLayout(self.header_frame)
         header_layout.setContentsMargins(8, 5, 8, 5)
 
-        self.toggle_arrow = QLabel("▶")
         self.play_button = QPushButton("▶")
         self.play_button.setFixedSize(22, 22)
         self.play_button.setToolTip("Preview Audio")
@@ -168,7 +167,6 @@ class TrackEditorWidget(QFrame):
         self.status_label = QLabel("<i>No file selected</i>")
         self.status_label.setObjectName("StatusLabel")
 
-        header_layout.addWidget(self.toggle_arrow)
         header_layout.addWidget(self.play_button)
         header_layout.addWidget(self.title_label)
         header_layout.addStretch()
@@ -240,21 +238,8 @@ class TrackEditorWidget(QFrame):
             content_layout.addWidget(self.loop_widget)
 
         # --- Styling & Connections ---
-        self.header_frame.mousePressEvent = self.toggle_content
-        self.content_frame.setVisible(False) # Collapsed by default
+        self.content_frame.setVisible(True) # Always visible
         self._update_status()
-
-    def toggle_content(self, event):
-        is_visible = not self.content_frame.isVisible()
-        self.content_frame.setVisible(is_visible)
-        self.toggle_arrow.setText("▼" if is_visible else "▶")
-
-        # Ensure the layout updates correctly after visibility change
-        self.content_frame.parentWidget().layout().invalidate()
-
-    def _toggle_loop_edits_enabled(self, checked):
-        """Emits the normalize_requested signal with the current file path."""
-        self.normalize_requested.emit(self.path_edit.text())
 
     def _toggle_loop_edits_enabled(self, checked):
         """Enables or disables the loop point input fields based on the checkbox state."""
