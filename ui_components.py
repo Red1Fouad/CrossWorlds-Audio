@@ -193,8 +193,6 @@ class TrackEditorWidget(QFrame):
         # --- Audio Playback ---
         self.player = None
         self.audio_output = None
-        if MULTIMEDIA_AVAILABLE:
-            self._init_player()
 
         # --- Main Layout ---
         main_layout = QVBoxLayout(self)
@@ -255,13 +253,22 @@ class TrackEditorWidget(QFrame):
         self.time_label.setFixedWidth(90)
         self.time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
+        self.volume_slider = QSlider(Qt.Orientation.Horizontal)
+        self.volume_slider.setFixedWidth(80)
+        self.volume_slider.setRange(0, 100)
+        self.volume_slider.setValue(100)
+        self.volume_slider.setToolTip("Volume")
+
         if MULTIMEDIA_AVAILABLE:
             self.playback_slider.valueChanged.connect(self.set_position)
+            self.volume_slider.valueChanged.connect(self.set_volume)
             playback_layout.addWidget(self.playback_slider)
             playback_layout.addWidget(self.time_label)
+            playback_layout.addWidget(self.volume_slider)
         else:
             self.playback_slider.setVisible(False)
             self.time_label.setVisible(False)
+            self.volume_slider.setVisible(False)
         content_layout.addLayout(playback_layout)
 
         # File path input
@@ -336,6 +343,10 @@ class TrackEditorWidget(QFrame):
 
         # --- Styling & Connections ---
         self.content_frame.setVisible(True) # Always visible
+
+        if MULTIMEDIA_AVAILABLE:
+            self._init_player()
+
         self._update_status()
 
     def _format_time(self, ms):
@@ -489,6 +500,9 @@ class TrackEditorWidget(QFrame):
         self.player.playbackStateChanged.connect(self._on_playback_state_changed)
         self.player.positionChanged.connect(self.position_changed)
         self.player.durationChanged.connect(self.duration_changed)
+
+        # Set initial volume
+        self.audio_output.setVolume(self.volume_slider.value() / 100.0)
         
         self.loop_timer = QTimer(self)
         self.loop_timer.setInterval(10) # High frequency check for smoother looping
@@ -634,6 +648,11 @@ class TrackEditorWidget(QFrame):
         # This check is important to prevent seeking when the player itself updates the slider's position
         if self.player and self.player.position() != position:
             self.player.setPosition(position)
+
+    def set_volume(self, volume):
+        """Sets the player volume."""
+        if self.audio_output:
+            self.audio_output.setVolume(volume / 100.0)
 
     def emit_normalize_request(self):
         """Emits the normalize_requested signal with the current file path."""
