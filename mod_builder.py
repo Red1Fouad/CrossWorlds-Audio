@@ -32,6 +32,35 @@ APP_VERSION = "1.4"
 SESSION_FILE = Path("session.json")
 GITHUB_REPO = "Red1Fouad/CrossWorlds-Audio"
 
+def find_loop_points_task(file_path_str):
+    """
+    Task to run in a background thread for finding loop points using the pymusiclooper CLI.
+    This is done via CLI to avoid Qt threading conflicts, as pymusiclooper uses PyQt.
+    """
+    import subprocess
+    import re
+
+    command = [
+        sys.executable,  # Use the same python interpreter that's running the app
+        "-m",
+        "pymusiclooper",
+        "export-points",
+        "--path",
+        file_path_str
+    ]
+
+    try:
+        result = subprocess.run(command, check=True, capture_output=True, text=True, encoding='utf-8')
+        output = result.stdout
+        start_match = re.search(r"LOOP_START: (\d+)", output)
+        end_match = re.search(r"LOOP_END: (\d+)", output)
+        if start_match and end_match:
+            return [(int(start_match.group(1)), int(end_match.group(1)))]
+        return [] # No loop points found in output
+    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        stderr = e.stderr if hasattr(e, 'stderr') else "N/A"
+        raise RuntimeError(f"pymusiclooper CLI failed.\nCommand: {' '.join(command)}\nError: {e}\nDetails: {stderr}") from e
+
 class Worker(QObject):
     """Worker for running tasks in a separate thread."""
     finished = Signal(object)
@@ -51,6 +80,9 @@ class Worker(QObject):
             self.error.emit(e)
 
 class ModBuilderGUI(QMainWindow):
+    # A dedicated, thread-safe signal for updating the status bar
+    update_status_bar = Signal(str, int)
+
     def __init__(self):
         super().__init__()
         self.base_title = f"CrossWorlds Music Mod Builder v{APP_VERSION}"
@@ -134,10 +166,17 @@ class ModBuilderGUI(QMainWindow):
         # --- Status Bar ---
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
+        # Connect our new signal to the status bar's slot
+        self.update_status_bar.connect(self.status_bar.showMessage)
+
+        # Add version label to the status bar
+        version_label = QLabel(f"v{APP_VERSION}")
+        self.status_bar.addPermanentWidget(version_label)
+
         # Check for updates on startup
         QTimer.singleShot(1000, self.check_for_updates) # Delay slightly to not block startup
 
-        self.status_bar.showMessage("Ready.")
+        self.update_status_bar.emit("Ready.", 0)
 
         # --- Shortcuts ---
         self.search_shortcut = QShortcut(QKeySequence("Ctrl+F"), self)
@@ -392,16 +431,19 @@ class ModBuilderGUI(QMainWindow):
         # Initialize Stage Track Editors
         self.intro_track_vars = TrackEditorWidget("Intro Music")
         self.intro_track_vars.play_requested.connect(self.on_play_requested)
+        self.intro_track_vars.autoloop_requested.connect(self.on_autoloop_requested)
         self.intro_track_vars.normalize_requested.connect(lambda path: self._update_path_after_normalize(self.intro_track_vars, path, 'music'))
         stage_layout.addWidget(self.intro_track_vars)
 
         self.lap1_track_vars = TrackEditorWidget("Lap 1 Music")
         self.lap1_track_vars.play_requested.connect(self.on_play_requested)
+        self.lap1_track_vars.autoloop_requested.connect(self.on_autoloop_requested)
         self.lap1_track_vars.normalize_requested.connect(lambda path: self._update_path_after_normalize(self.lap1_track_vars, path, 'music'))
         stage_layout.addWidget(self.lap1_track_vars)
 
         self.final_lap_track_vars = TrackEditorWidget("Final Lap Music")
         self.final_lap_track_vars.play_requested.connect(self.on_play_requested)
+        self.final_lap_track_vars.autoloop_requested.connect(self.on_autoloop_requested)
         self.final_lap_track_vars.normalize_requested.connect(lambda path: self._update_path_after_normalize(self.final_lap_track_vars, path, 'music'))
         stage_layout.addWidget(self.final_lap_track_vars)
 
@@ -551,7 +593,7 @@ class ModBuilderGUI(QMainWindow):
 
     def check_for_updates(self):
         """Initiates a background check for a new version on GitHub."""
-        self.status_bar.showMessage("Checking for updates...")
+        self.update_status_bar.emit("Checking for updates...", 0)
         self.run_command_threaded(
             self._perform_update_check,
             on_complete=self.on_update_check_complete,
@@ -584,7 +626,7 @@ class ModBuilderGUI(QMainWindow):
         return None # No update or an error occurred
 
     def on_update_check_complete(self, result):
-        self.status_bar.showMessage("Ready.", 2000) # Show "Ready" for 2 seconds
+        self.update_status_bar.emit("Ready.", 2000) # Show "Ready" for 2 seconds
         if result:
             reply = QMessageBox.information(self, "Update Available",
                                           f"A new version ({result['new_version']}) is available!\n\nWould you like to open the download page?",
@@ -593,7 +635,7 @@ class ModBuilderGUI(QMainWindow):
                 QDesktopServices.openUrl(QUrl(result['url']))
 
     def on_update_check_error(self, error):
-        self.status_bar.showMessage("Update check failed.", 3000)
+        self.update_status_bar.emit("Update check failed.", 3000)
 
     def focus_search_bar(self):
         if self.voice_search_bar and self.voice_search_bar.isVisible():
@@ -656,6 +698,7 @@ class ModBuilderGUI(QMainWindow):
         for label, hca_name in track_dict.items():
             editor_widget = TrackEditorWidget(label, show_loop_options=show_loops)
             editor_widget.play_requested.connect(self.on_play_requested)
+            editor_widget.autoloop_requested.connect(self.on_autoloop_requested)
             editor_widget.normalize_requested.connect(lambda path, track_type='sfx' if acb_stem.startswith("SE_") else 'voice': self.on_normalize_requested(path, track_type))
             self.special_track_vars[hca_name] = editor_widget
             self.all_track_editors.append(editor_widget)
@@ -689,26 +732,28 @@ class ModBuilderGUI(QMainWindow):
         self.active_threads.append((thread, worker))
 
         thread.started.connect(worker.run)
-        worker.finished.connect(on_complete)
-        worker.error.connect(on_error)
+        worker.finished.connect(on_complete, Qt.QueuedConnection)
+        worker.error.connect(on_error, Qt.QueuedConnection)
 
         # Clean up when finished
-        worker.finished.connect(thread.quit)
-        worker.finished.connect(worker.deleteLater)
+        worker.finished.connect(thread.quit) # On success, tell the thread to quit
+        worker.error.connect(thread.quit)    # Also tell the thread to quit on error
+
+        # Once the thread has finished its event loop, we can safely delete the objects
+        thread.finished.connect(worker.deleteLater)
         thread.finished.connect(thread.deleteLater)
-        # Remove from our list when the thread is done
         thread.finished.connect(lambda: self.active_threads.remove((thread, worker)))
 
         thread.start()
 
     def on_command_error(self, error):
-        self.status_bar.showMessage("Error! Check console for details.")
+        self.update_status_bar.emit("Error! Check console for details.", 0)
         QMessageBox.critical(self, "Execution Error", str(error))
         self.reset_ui_state()
 
     def reset_ui_state(self):
         """Resets buttons to an interactive state after an operation."""
-        self.status_bar.showMessage("Ready.")
+        self.update_status_bar.emit("Ready.", 0)
         self.unpack_button.setEnabled(bool(self._acb_file))
         self.convert_button.setEnabled(bool(self._unpacked_folder))
         self.repack_button.setEnabled(bool(self._unpacked_folder))
@@ -752,10 +797,10 @@ class ModBuilderGUI(QMainWindow):
         # The output will be a WAV file with a '_norm' suffix in the same directory.
         output_path = source_path.with_name(f"{source_path.stem}_norm.wav")
 
-        self.status_bar.showMessage(f"Normalizing '{source_path.name}'...")
+        self.update_status_bar.emit(f"Normalizing '{source_path.name}'...", 0)
         try:
             normalize_audio_file(str(source_path), str(ref_path), str(output_path))
-            self.status_bar.showMessage(f"Normalization complete. Saved as '{output_path.name}'.", 5000)
+            self.update_status_bar.emit(f"Normalization complete. Saved as '{output_path.name}'.", 5000)
             QMessageBox.information(self, "Normalization Complete", f"Normalized audio saved as:\n{output_path.name}\n\nThe file path in the editor has been updated for you.")
             return str(output_path) # Return the new path
         except Exception as e:
@@ -766,6 +811,56 @@ class ModBuilderGUI(QMainWindow):
         new_path = self.on_normalize_requested(path, track_type)
         if new_path:
             editor.path_edit.setText(new_path)
+
+    def on_autoloop_requested(self, editor_widget, file_path_str):
+        """Handles the auto-loop request from a TrackEditorWidget."""
+        if not file_path_str or not Path(file_path_str).exists():
+            QMessageBox.warning(self, "File Not Found", "Please select a valid audio file first.")
+            return
+
+        if not editor_widget.loop_checkbox:
+            QMessageBox.information(self, "Not Applicable", "Auto-loop is not available for this type of track.")
+            return
+
+        reply = QMessageBox.information(self, "Auto-Loop Analysis",
+                                      "This will analyze the audio file to find the best loop points. "
+                                      "This process can take a while, especially for long files.\n\n"
+                                      "Please note: The results are not always perfect and may require manual adjustment.\n\n"
+                                      "The application may appear to freeze, but it is working in the background. "
+                                      "Continue?",
+                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if reply == QMessageBox.StandardButton.No:
+            return
+
+        editor_widget.on_autoloop_started()
+        self.update_status_bar.emit(f"Finding loop points for '{Path(file_path_str).name}'...", 0)
+
+        try:
+            import pymusiclooper
+        except ImportError:
+            self.on_autoloop_error(editor_widget, Exception("pymusiclooper is not installed. Please run 'pip install pymusiclooper'."))
+            return
+
+        self.run_command_threaded(
+            find_loop_points_task,
+            on_complete=lambda result: self.on_autoloop_complete(editor_widget, result),
+            on_error=lambda error: self.on_autoloop_error(editor_widget, error),
+            args=(file_path_str,)
+        )
+
+    def on_autoloop_complete(self, editor_widget, loop_points):
+        editor_widget.on_autoloop_finished(loop_points)
+        self.update_status_bar.emit("Loop point analysis complete.", 5000)
+
+        if loop_points:
+            best_loop = loop_points[0]
+            QMessageBox.information(self, "Loop Points Found", f"Successfully found loop points!\n\nStart: {best_loop[0]} samples\nEnd:   {best_loop[1]} samples\n\nThe fields have been updated for you.")
+        else:
+            QMessageBox.warning(self, "No Loop Points Found", "Could not find any suitable loop points for this audio file.")
+
+    def on_autoloop_error(self, editor_widget, error):
+        editor_widget.on_autoloop_finished(None) # Reset the specific widget's UI
+        self.on_command_error(error)
 
     def _prompt_for_acb_file(self, acb_filename_stem):
         """Opens a file dialog to locate an ACB file and returns the selected path or None."""
@@ -806,12 +901,14 @@ class ModBuilderGUI(QMainWindow):
         self._unpacked_folder = ""
         self.convert_button.setEnabled(False)
 
-        self.intro_track_vars.path_edit.setText('')
-        self.lap1_track_vars.path_edit.setText('')
-        self.final_lap_track_vars.path_edit.setText('')
-        self.intro_track_vars.loop_checkbox.setChecked(False)
-        self.lap1_track_vars.loop_checkbox.setChecked(False)
-        self.final_lap_track_vars.loop_checkbox.setChecked(False)
+        for track in [self.intro_track_vars, self.lap1_track_vars, self.final_lap_track_vars]:
+            track.path_edit.clear()
+            if track.loop_checkbox:
+                track.loop_checkbox.setChecked(False)
+            if track.loop_start_edit:
+                track.loop_start_edit.clear()
+            if track.loop_end_edit:
+                track.loop_end_edit.clear()
 
         # Hide conversion options and show the placeholder text
         self.stage_music_frame.setVisible(False)
@@ -869,7 +966,7 @@ class ModBuilderGUI(QMainWindow):
     def unpack_acb(self):
         acb_path = Path(self._acb_file)
         print(f"--- Step 1: Unpacking '{acb_path.name}' ---")
-        self.status_bar.showMessage(f"Unpacking '{acb_path.name}'...")
+        self.update_status_bar.emit(f"Unpacking '{acb_path.name}'...", 0)
         self.unpack_button.setEnabled(False)
         
         self.unpack_progress.setRange(0, 0) # Indeterminate mode
@@ -880,7 +977,7 @@ class ModBuilderGUI(QMainWindow):
     def on_unpack_complete(self, result):
         self.unpack_progress.setVisible(False)
         print("Unpacking complete.")
-        self.status_bar.showMessage("Unpacking complete. Ready for audio conversion.")
+        self.update_status_bar.emit("Unpacking complete. Ready for audio conversion.", 0)
         self._unpacked_folder = result
         unpacked_path = Path(result)
         if not unpacked_path.exists():
@@ -904,7 +1001,7 @@ class ModBuilderGUI(QMainWindow):
         """New fully automated conversion process."""
         acb_path = Path(self._acb_file)
         print(f"\n--- Step 2: Starting Conversion for '{acb_path.stem}' ---")
-        self.status_bar.showMessage(f"Preparing to convert audio for '{acb_path.stem}'...")
+        self.update_status_bar.emit(f"Preparing to convert audio for '{acb_path.stem}'...", 0)
 
         # --- Prepare list of conversions to run ---
         acb_stem = acb_path.stem
@@ -936,6 +1033,14 @@ class ModBuilderGUI(QMainWindow):
                                         f"Start: {start}\nEnd: {end}\n\n"
                                         "Please remove the commas (e.g., change '1,234' to '1234') and try again.")
                     return
+                try:
+                    if int(start) >= int(end):
+                        QMessageBox.warning(self, "Invalid Loop Points",
+                                            f"Error in track '{name}': Loop End must be greater than Loop Start.\n\n"
+                                            f"Start: {start}\nEnd: {end}")
+                        return
+                except ValueError:
+                    pass # Commas are already handled, this will catch other non-integer values
 
         print("The following files will be converted:")
         for name, wav_path_str, _, _, _ in tasks:
@@ -948,7 +1053,7 @@ class ModBuilderGUI(QMainWindow):
 
         # --- Run conversions in a thread ---
         self.convert_button.setEnabled(False)
-        self.status_bar.showMessage("Converting audio files... this may take a moment.")
+        self.update_status_bar.emit("Converting audio files... this may take a moment.", 0)
         try:
             self.run_command_threaded(self.logic.convert_audio, self.on_convert_complete, self.on_command_error, args=(acb_path, tasks))
         except ValueError as e:
@@ -957,7 +1062,7 @@ class ModBuilderGUI(QMainWindow):
 
     def on_convert_complete(self, result):
         print("All conversions complete.")
-        self.status_bar.showMessage("Audio conversion complete. Ready to repack.")
+        self.update_status_bar.emit("Audio conversion complete. Ready to repack.", 0)
         QMessageBox.information(self, "Success", "Audio conversion complete!")
         self.reset_ui_state()
 
@@ -970,7 +1075,7 @@ class ModBuilderGUI(QMainWindow):
                 editor.path_edit.clear()
                 if editor.loop_checkbox:
                     editor.loop_checkbox.setChecked(False)
-            self.status_bar.showMessage("All tracks cleared.")
+            self.update_status_bar.emit("All tracks cleared.", 0)
 
     def _capture_current_track_state(self):
         """Saves the current UI state to the cache for the current ACB."""
@@ -1024,7 +1129,7 @@ class ModBuilderGUI(QMainWindow):
 
     def repack_acb(self):
         print("\n--- Applying Replacements ---")
-        self.status_bar.showMessage("Applying replacement audio files...")
+        self.update_status_bar.emit("Applying replacement audio files...", 0)
         replacement_map = {}
 
         acb_stem = Path(self._acb_file).stem
@@ -1114,13 +1219,13 @@ class ModBuilderGUI(QMainWindow):
 
         print("\n--- Step 3: Repacking ACB ---")
         unpacked_path = Path(self._unpacked_folder)
-        self.status_bar.showMessage(f"Repacking '{unpacked_path.name}'...")
+        self.update_status_bar.emit(f"Repacking '{unpacked_path.name}'...", 0)
         self.repack_button.setEnabled(False) # Disable button during operation
         self.run_command_threaded(self.logic.repack_acb, self.on_repack_complete, self.on_command_error, args=(unpacked_path,))
 
     def on_repack_complete(self, result):
         print("Repacking complete.")
-        self.status_bar.showMessage("ACB repacked successfully. Ready to create .pak file.")
+        self.update_status_bar.emit("ACB repacked successfully. Ready to create .pak file.", 0)
         QMessageBox.information(self, "Success", "ACB folder has been repacked!")
         self.reset_ui_state()
 
@@ -1131,7 +1236,7 @@ class ModBuilderGUI(QMainWindow):
             return
 
         print(f"\n--- Step 4: Creating Mod Pak '{mod_name_str}.pak' ---")
-        self.status_bar.showMessage(f"Creating mod package '{mod_name_str}.pak'...")
+        self.update_status_bar.emit(f"Creating mod package '{mod_name_str}.pak'...", 0)
         try:
             self.pak_button.setEnabled(False)
             self.run_command_threaded(self.logic.create_pak, self.on_pak_complete, self.on_command_error, args=(mod_name_str, self._acb_file))
@@ -1142,7 +1247,7 @@ class ModBuilderGUI(QMainWindow):
     def on_pak_complete(self, result):
         mod_name_str = self._mod_name.strip()
         print(f"Pak file creation complete.")
-        self.status_bar.showMessage(f"Mod '{mod_name_str}.pak' created successfully!")
+        self.update_status_bar.emit(f"Mod '{mod_name_str}.pak' created successfully!", 0)
         pak_file = Path(mod_name_str).with_suffix('.pak')
         QMessageBox.information(self, "Mod Creation Complete!", f"Successfully created mod package:\n{pak_file.resolve()}")
         self.reset_ui_state()

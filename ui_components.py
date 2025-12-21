@@ -6,7 +6,7 @@ try:
     from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel, QLineEdit,
                                    QPushButton, QFileDialog, QMessageBox, QTreeWidget, QTreeWidgetItem, QScrollArea,
                                    QFrame, QMenuBar, QStatusBar, QTabWidget, QGridLayout, QSizePolicy, QDialog,
-                                   QDialogButtonBox, QCheckBox, QSlider, QStyleOptionSlider, QStyle)
+                                   QDialogButtonBox, QCheckBox, QSlider, QStyleOptionSlider, QStyle, QProgressBar)
     from PySide6.QtCore import Qt, QThread, Signal, QObject, QTimer, QSize, QRect
     from PySide6.QtGui import QDesktopServices, QShortcut, QKeySequence, QIcon, QPixmap, QPainter, QColor
     try:
@@ -171,6 +171,7 @@ class TrackEditorWidget(QFrame):
     """A collapsible widget for editing a single track's replacement file and loop points."""
     play_requested = Signal(object)  # Signal that this widget wants to play audio
     normalize_requested = Signal(str) # Signal that this widget wants to normalize audio
+    autoloop_requested = Signal(object, str) # Signal with self and path
 
     def __init__(self, label_text, show_loop_options=True, parent=None):
         super().__init__(parent)
@@ -285,14 +286,21 @@ class TrackEditorWidget(QFrame):
         self.path_edit.textChanged.connect(self._update_status)
         clear_button = QPushButton("Clear")
         clear_button.clicked.connect(self.path_edit.clear)
+
         self.normalize_button = QPushButton("Normalize")
         self.normalize_button.setToolTip("Normalizes this audio file against a reference and saves it as a new WAV file.")
         self.normalize_button.clicked.connect(self.emit_normalize_request)
+
+        self.autoloop_button = QPushButton("Auto-Loop")
+        self.autoloop_button.setToolTip("Automatically finds the best loop points for this audio file.\nRequires 'pymusiclooper' to be installed.")
+        self.autoloop_button.clicked.connect(self.emit_autoloop_request)
+
         browse_button = QPushButton("Browse...")
         browse_button.clicked.connect(self._browse_for_file)
         browse_layout.addWidget(self.path_edit)
         browse_layout.addWidget(clear_button)
         browse_layout.addWidget(self.normalize_button)
+        browse_layout.addWidget(self.autoloop_button)
         browse_layout.addWidget(browse_button)
         content_layout.addLayout(browse_layout)
 
@@ -318,6 +326,13 @@ class TrackEditorWidget(QFrame):
             self.loop_end_edit.setEnabled(False) # Start disabled
             loop_layout.addWidget(self.loop_end_edit)
             content_layout.addWidget(self.loop_widget)
+        else:
+            self.autoloop_button.setVisible(False)
+
+        self.autoloop_progress = QProgressBar()
+        self.autoloop_progress.setVisible(False)
+        self.autoloop_progress.setTextVisible(False)
+        content_layout.addWidget(self.autoloop_progress)
 
         # --- Styling & Connections ---
         self.content_frame.setVisible(True) # Always visible
@@ -409,11 +424,12 @@ class TrackEditorWidget(QFrame):
             is_audio = False
             if has_text:
                 try:
-                    is_audio = Path(filepath).exists() and Path(filepath).suffix.lower() in ['.wav', '.mp3', '.flac', '.ogg', '.m4a']
+                    is_audio = Path(filepath).exists() and Path(filepath).suffix.lower() in ['.wav', '.mp3', '.flac', '.ogg', '.m4a', '.brstm']
                 except Exception:
                     is_audio = False # Handle invalid path characters during typing
 
             self.normalize_button.setEnabled(is_audio)
+            self.autoloop_button.setEnabled(is_audio)
             self.play_button.setEnabled(is_audio)
             self.playback_slider.setEnabled(is_audio)
             if self.loop_checkbox:
@@ -440,6 +456,31 @@ class TrackEditorWidget(QFrame):
                 self._try_load_loop_points(filepath)
         elif not filepath:
             self._last_filepath = None
+
+    def emit_autoloop_request(self):
+        """Emits the autoloop_requested signal with self and the current file path."""
+        self.autoloop_requested.emit(self, self.path_edit.text())
+
+    def on_autoloop_started(self):
+        """Called when the auto-loop process begins."""
+        self.autoloop_progress.setRange(0, 0)
+        self.autoloop_progress.setVisible(True)
+        self.play_button.setEnabled(False)
+        self.loop_preview_button.setEnabled(False)
+        self.normalize_button.setEnabled(False)
+        self.autoloop_button.setEnabled(False)
+
+    def on_autoloop_finished(self, loop_points):
+        """Called when the auto-loop process finishes."""
+        self.autoloop_progress.setVisible(False)
+        self._update_status() # This will re-evaluate and set button states
+
+        if loop_points and self.loop_checkbox:
+            best_loop = loop_points[0]
+            loop_start, loop_end = best_loop[0], best_loop[1]
+            self.loop_checkbox.setChecked(True)
+            self.loop_start_edit.setText(str(loop_start))
+            self.loop_end_edit.setText(str(loop_end))
 
     def _init_player(self):
         self.player = QMediaPlayer()
@@ -477,6 +518,9 @@ class TrackEditorWidget(QFrame):
                 start_sample = int(self.loop_start_edit.text())
                 end_sample = int(self.loop_end_edit.text())
                 if start_sample < 0 or end_sample <= start_sample:
+                    if end_sample <= start_sample:
+                        QMessageBox.warning(self, "Invalid Loop Points", "Loop End must be greater than Loop Start.")
+                        return
                     raise ValueError("Loop points are invalid.")
             except ValueError:
                 QMessageBox.warning(self, "Invalid Loop Points", "Please enter valid, positive integer values for loop start and end points.")
