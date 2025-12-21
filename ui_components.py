@@ -186,6 +186,8 @@ class TrackEditorWidget(QFrame):
         self._last_filepath = None # To prevent re-scanning the same file
         self._sample_rate = 0 # For loop point conversion
         self.playback_mode = None # 'normal' or 'loop'
+        self._manual_stop = False
+        self.loop_timer = None
 
         # --- Audio Playback ---
         self.player = None
@@ -446,6 +448,10 @@ class TrackEditorWidget(QFrame):
         self.player.playbackStateChanged.connect(self._on_playback_state_changed)
         self.player.positionChanged.connect(self.position_changed)
         self.player.durationChanged.connect(self.duration_changed)
+        
+        self.loop_timer = QTimer(self)
+        self.loop_timer.setInterval(10) # High frequency check for smoother looping
+        self.loop_timer.timeout.connect(self._check_loop)
 
     def toggle_playback(self):
         if not self.player: return
@@ -480,6 +486,7 @@ class TrackEditorWidget(QFrame):
             filepath = self.path_edit.text()
             if filepath and Path(filepath).exists():
                 self.playback_mode = 'loop'
+                self._manual_stop = False
                 
                 # Update slider visualization
                 try:
@@ -494,8 +501,12 @@ class TrackEditorWidget(QFrame):
 
                 self.player.setSource(QUrl.fromLocalFile(filepath))
                 self.player.play()
+                self.loop_timer.start()
 
     def stop_playback(self):
+        self._manual_stop = True
+        if self.loop_timer:
+            self.loop_timer.stop()
         if self.player and self.player.playbackState() != QMediaPlayer.PlaybackState.StoppedState:
             self.player.stop()
         self.playback_mode = None
@@ -516,6 +527,18 @@ class TrackEditorWidget(QFrame):
                 if self.loop_preview_button:
                     self.loop_preview_button.setEnabled(False)
         else: # Stopped or Paused
+            # Check if we hit the end of the file while in loop mode
+            if self.playback_mode == 'loop' and not self._manual_stop:
+                try:
+                    start_samples = int(self.loop_start_edit.text())
+                    if self._sample_rate > 0:
+                        start_ms = int((start_samples / self._sample_rate) * 1000)
+                        self.player.setPosition(start_ms)
+                        self.player.play()
+                        return
+                except Exception:
+                    pass
+
             self.play_button.setText("▶") # Play symbol
             self.play_button.setToolTip("Preview Audio")
             self.play_button.setEnabled(True)
@@ -524,6 +547,29 @@ class TrackEditorWidget(QFrame):
                 self.loop_preview_button.setToolTip("Preview Loop Points")
                 self.loop_preview_button.setEnabled(True)
             self.playback_mode = None # Reset mode on stop
+
+    def _check_loop(self):
+        """Called by timer to check loop condition with higher frequency."""
+        if self.playback_mode == 'loop' and self._sample_rate > 0 and self.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
+            try:
+                position = self.player.position()
+                start_samples = int(self.loop_start_edit.text())
+                end_samples = int(self.loop_end_edit.text())
+                
+                start_ms = int((start_samples / self._sample_rate) * 1000)
+                end_ms = int((end_samples / self._sample_rate) * 1000)
+
+                if position >= end_ms:
+                    seek_pos = start_ms
+                    # Compensate for timer granularity to keep rhythm smooth
+                    overshoot = position - end_ms
+                    if 0 < overshoot < 200: 
+                        seek_pos += overshoot
+                    if seek_pos >= end_ms: seek_pos = start_ms 
+                    self.player.setPosition(seek_pos)
+            except (ValueError, ZeroDivisionError) as e:
+                print(f"Error during loop check: {e}")
+                self.stop_playback()
 
     def position_changed(self, position):
         # Update slider
@@ -534,22 +580,6 @@ class TrackEditorWidget(QFrame):
         # Update time label
         duration = self.player.duration()
         self.time_label.setText(f"{self._format_time(position)} / {self._format_time(duration)}")
-
-        # Handle loop preview
-        if self.playback_mode == 'loop' and self._sample_rate > 0:
-            try:
-                start_samples = int(self.loop_start_edit.text())
-                end_samples = int(self.loop_end_edit.text())
-                
-                start_ms = int((start_samples / self._sample_rate) * 1000)
-                end_ms = int((end_samples / self._sample_rate) * 1000)
-
-                if position >= end_ms:
-                    self.player.setPosition(start_ms)
-            except (ValueError, ZeroDivisionError) as e:
-                # Stop looping if values are bad
-                print(f"Error during loop check: {e}")
-                self.stop_playback()
 
     def duration_changed(self, duration):
         self.playback_slider.setRange(0, duration)

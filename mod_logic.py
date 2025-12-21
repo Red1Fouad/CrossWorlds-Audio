@@ -1,4 +1,5 @@
 import os
+import sys
 import subprocess
 import shlex
 import shutil
@@ -8,14 +9,45 @@ class ModLogic:
     def __init__(self, tools_dir, output_dir):
         self.TOOLS_DIR = Path(tools_dir)
         self.OUTPUT_DIR = Path(output_dir)
+        self.IS_LINUX = sys.platform.startswith("linux")
+        
         self.ACB_EDITOR = self.TOOLS_DIR / "AcbEditor.exe"
         self.CONVERT_BAT = self.TOOLS_DIR / "Convert2UNION.bat"
-        self.FFMPEG = self.TOOLS_DIR / "ffmpeg.exe"
         self.UNREAL_PAK = self.TOOLS_DIR / "UnrealPak.bat"
+        
+        if self.IS_LINUX:
+            # On Linux, check for local ffmpeg binary, otherwise assume system 'ffmpeg'
+            if (self.TOOLS_DIR / "ffmpeg").exists():
+                self.FFMPEG = self.TOOLS_DIR / "ffmpeg"
+            else:
+                self.FFMPEG = Path("ffmpeg")
+        else:
+            self.FFMPEG = self.TOOLS_DIR / "ffmpeg.exe"
+
+    def _to_wine_path(self, path):
+        """Converts a Linux path to a Windows path for Wine."""
+        if not self.IS_LINUX:
+            return str(path)
+        try:
+            return subprocess.check_output(["winepath", "-w", str(path)]).decode().strip()
+        except Exception:
+            return str(path)
 
     def _execute_command(self, command, shell, cwd):
         """The actual command execution logic for the thread."""
         try:
+            if self.IS_LINUX:
+                cmd_path = Path(command[0])
+                # If running a Windows executable or batch file on Linux, use Wine
+                if cmd_path.suffix.lower() == ".exe":
+                    command = ["wine"] + [str(c) for c in command]
+                    shell = False
+                elif cmd_path.suffix.lower() == ".bat":
+                    # Convert arguments to Wine paths
+                    wine_args = [self._to_wine_path(arg) for arg in command[1:]]
+                    command = ["wine", "cmd", "/c", str(command[0])] + wine_args
+                    shell = False
+
             if not shell:
                 creation_flags = 0
                 subprocess.run(command, check=True, cwd=cwd, creationflags=creation_flags)
@@ -88,6 +120,9 @@ class ModLogic:
             vgaudio_cli_path = Path(cwd) / command_parts[0]
             command_parts[0] = str(vgaudio_cli_path)
             
+            if self.IS_LINUX and vgaudio_cli_path.suffix.lower() == ".exe":
+                command_parts = ["wine"] + command_parts
+
             print(f"  - Command: {' '.join(shlex.quote(p) for p in command_parts)}")
             subprocess.run(command_parts, check=True, cwd=cwd)
 
@@ -145,6 +180,9 @@ class ModLogic:
         """Checks if all required tools exist."""
         missing_tools = []
         for tool in [self.ACB_EDITOR, self.CONVERT_BAT, self.UNREAL_PAK, self.FFMPEG]:
+            # Skip check for system ffmpeg on Linux
+            if self.IS_LINUX and str(tool) == "ffmpeg":
+                continue
             if not tool.exists():
                 missing_tools.append(str(tool))
         return missing_tools

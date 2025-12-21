@@ -1,4 +1,5 @@
 import os
+import sys
 import wave
 import numpy as np
 import struct
@@ -11,12 +12,19 @@ try:
 
     # Explicitly set the path to ffmpeg.exe from the tools directory.
     # This makes the app more portable and less reliant on system PATH.
-    ffmpeg_path = Path("tools/ffmpeg.exe").resolve()
-    if ffmpeg_path.exists():
-        AudioSegment.converter = str(ffmpeg_path)
-        print(f"pydub: Successfully set ffmpeg path to {ffmpeg_path}")
+    if sys.platform.startswith("linux"):
+        # On Linux, try local binary first, otherwise assume system ffmpeg (pydub default)
+        ffmpeg_path = Path("tools/ffmpeg").resolve()
+        if ffmpeg_path.exists():
+            AudioSegment.converter = str(ffmpeg_path)
+            print(f"pydub: Successfully set ffmpeg path to {ffmpeg_path}")
     else:
-        print(f"pydub Warning: ffmpeg.exe not found at '{ffmpeg_path}'. Conversion of non-WAV files may fail.")
+        ffmpeg_path = Path("tools/ffmpeg.exe").resolve()
+        if ffmpeg_path.exists():
+            AudioSegment.converter = str(ffmpeg_path)
+            print(f"pydub: Successfully set ffmpeg path to {ffmpeg_path}")
+        else:
+            print(f"pydub Warning: ffmpeg.exe not found at '{ffmpeg_path}'. Conversion of non-WAV files may fail.")
 
 except ImportError:
     PYDUB_AVAILABLE = False
