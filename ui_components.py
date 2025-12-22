@@ -172,6 +172,7 @@ class TrackEditorWidget(QFrame):
     play_requested = Signal(object)  # Signal that this widget wants to play audio
     normalize_requested = Signal(str) # Signal that this widget wants to normalize audio
     autoloop_requested = Signal(object, str) # Signal with self and path
+    cancel_autoloop_requested = Signal(object) # Signal with self
 
     def __init__(self, label_text, show_loop_options=True, parent=None):
         super().__init__(parent)
@@ -302,12 +303,18 @@ class TrackEditorWidget(QFrame):
         self.autoloop_button.setToolTip("Automatically finds the best loop points for this audio file.\nRequires 'pymusiclooper' to be installed.")
         self.autoloop_button.clicked.connect(self.emit_autoloop_request)
 
+        self.cancel_autoloop_button = QPushButton("Cancel")
+        self.cancel_autoloop_button.setToolTip("Cancel Auto-Loop Analysis")
+        self.cancel_autoloop_button.clicked.connect(lambda: self.cancel_autoloop_requested.emit(self))
+        self.cancel_autoloop_button.setVisible(False)
+
         browse_button = QPushButton("Browse...")
         browse_button.clicked.connect(self._browse_for_file)
         browse_layout.addWidget(self.path_edit)
         browse_layout.addWidget(clear_button)
         browse_layout.addWidget(self.normalize_button)
         browse_layout.addWidget(self.autoloop_button)
+        browse_layout.addWidget(self.cancel_autoloop_button)
         browse_layout.addWidget(browse_button)
         content_layout.addLayout(browse_layout)
 
@@ -479,11 +486,14 @@ class TrackEditorWidget(QFrame):
         self.play_button.setEnabled(False)
         self.loop_preview_button.setEnabled(False)
         self.normalize_button.setEnabled(False)
-        self.autoloop_button.setEnabled(False)
+        self.autoloop_button.setVisible(False)
+        self.cancel_autoloop_button.setVisible(True)
 
     def on_autoloop_finished(self, loop_points):
         """Called when the auto-loop process finishes."""
         self.autoloop_progress.setVisible(False)
+        self.cancel_autoloop_button.setVisible(False)
+        self.autoloop_button.setVisible(True)
         self._update_status() # This will re-evaluate and set button states
 
         if loop_points and self.loop_checkbox:

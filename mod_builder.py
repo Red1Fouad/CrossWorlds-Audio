@@ -120,6 +120,7 @@ class ModBuilderGUI(QMainWindow):
         self.setWindowIcon(QIcon("tools/ico.ico"))
 
         self.active_threads = [] # Keep references to active threads
+        self.autoloop_threads = {} # Map widgets to their specific threads for cancellation
 
         self.config = configparser.ConfigParser()
         self.settings_file = Path("settings.ini")
@@ -474,24 +475,28 @@ class ModBuilderGUI(QMainWindow):
         self.intro_track_vars = TrackEditorWidget("Intro Music")
         self.intro_track_vars.play_requested.connect(self.on_play_requested)
         self.intro_track_vars.autoloop_requested.connect(self.on_autoloop_requested)
+        self.intro_track_vars.cancel_autoloop_requested.connect(self.on_cancel_autoloop)
         self.intro_track_vars.normalize_requested.connect(lambda path: self._update_path_after_normalize(self.intro_track_vars, path, 'music'))
         stage_layout.addWidget(self.intro_track_vars)
 
         self.lap1_track_vars = TrackEditorWidget("Lap 1 Music")
         self.lap1_track_vars.play_requested.connect(self.on_play_requested)
         self.lap1_track_vars.autoloop_requested.connect(self.on_autoloop_requested)
+        self.lap1_track_vars.cancel_autoloop_requested.connect(self.on_cancel_autoloop)
         self.lap1_track_vars.normalize_requested.connect(lambda path: self._update_path_after_normalize(self.lap1_track_vars, path, 'music'))
         stage_layout.addWidget(self.lap1_track_vars)
 
         self.final_lap_track_vars = TrackEditorWidget("Final Lap Music")
         self.final_lap_track_vars.play_requested.connect(self.on_play_requested)
         self.final_lap_track_vars.autoloop_requested.connect(self.on_autoloop_requested)
+        self.final_lap_track_vars.cancel_autoloop_requested.connect(self.on_cancel_autoloop)
         self.final_lap_track_vars.normalize_requested.connect(lambda path: self._update_path_after_normalize(self.final_lap_track_vars, path, 'music'))
         stage_layout.addWidget(self.final_lap_track_vars)
 
         self.transition_track_vars = TrackEditorWidget("Transition Music (Normal)")
         self.transition_track_vars.play_requested.connect(self.on_play_requested)
         self.transition_track_vars.autoloop_requested.connect(self.on_autoloop_requested)
+        self.transition_track_vars.cancel_autoloop_requested.connect(self.on_cancel_autoloop)
         self.transition_track_vars.normalize_requested.connect(lambda path: self._update_path_after_normalize(self.transition_track_vars, path, 'music'))
         stage_layout.addWidget(self.transition_track_vars)
 
@@ -507,12 +512,14 @@ class ModBuilderGUI(QMainWindow):
         self.transition_short_track_vars = TrackEditorWidget("Transition Music (Short)")
         self.transition_short_track_vars.play_requested.connect(self.on_play_requested)
         self.transition_short_track_vars.autoloop_requested.connect(self.on_autoloop_requested)
+        self.transition_short_track_vars.cancel_autoloop_requested.connect(self.on_cancel_autoloop)
         self.transition_short_track_vars.normalize_requested.connect(lambda path: self._update_path_after_normalize(self.transition_short_track_vars, path, 'music'))
         stage_layout.addWidget(self.transition_short_track_vars)
 
         self.announce_track_vars = TrackEditorWidget("Final Lap Announcement")
         self.announce_track_vars.play_requested.connect(self.on_play_requested)
         self.announce_track_vars.autoloop_requested.connect(self.on_autoloop_requested)
+        self.announce_track_vars.cancel_autoloop_requested.connect(self.on_cancel_autoloop)
         self.announce_track_vars.normalize_requested.connect(lambda path: self._update_path_after_normalize(self.announce_track_vars, path, 'music'))
         stage_layout.addWidget(self.announce_track_vars)
 
@@ -777,6 +784,7 @@ class ModBuilderGUI(QMainWindow):
             editor_widget = TrackEditorWidget(label, show_loop_options=show_loops)
             editor_widget.play_requested.connect(self.on_play_requested)
             editor_widget.autoloop_requested.connect(self.on_autoloop_requested)
+            editor_widget.cancel_autoloop_requested.connect(self.on_cancel_autoloop)
             editor_widget.normalize_requested.connect(lambda path, track_type='sfx' if acb_stem.startswith("SE_") else 'voice': self.on_normalize_requested(path, track_type))
             self.special_track_vars[hca_name] = editor_widget
             self.all_track_editors.append(editor_widget)
@@ -823,6 +831,7 @@ class ModBuilderGUI(QMainWindow):
         thread.finished.connect(lambda: self.active_threads.remove((thread, worker)))
 
         thread.start()
+        return thread, worker
 
     def on_command_error(self, error):
         self.update_status_bar.emit("Error! Check console for details.", 0)
@@ -984,14 +993,16 @@ class ModBuilderGUI(QMainWindow):
                 editor_widget.on_autoloop_finished(None) # Reset the UI
             return
 
-        self.run_command_threaded(
+        thread, worker = self.run_command_threaded(
             find_loop_points_task,
             on_complete=lambda result: self.on_autoloop_complete(editor_widget, result),
             on_error=lambda error: self.on_autoloop_error(editor_widget, error),
             args=(file_path_str,)
         )
+        self.autoloop_threads[editor_widget] = (thread, worker)
 
     def on_autoloop_complete(self, editor_widget, loop_points):
+        if editor_widget in self.autoloop_threads: del self.autoloop_threads[editor_widget]
         editor_widget.on_autoloop_finished(loop_points)
         self.update_status_bar.emit("Loop point analysis complete.", 5000)
 
@@ -1002,8 +1013,20 @@ class ModBuilderGUI(QMainWindow):
             QMessageBox.warning(self, "No Loop Points Found", "Could not find any suitable loop points for this audio file.")
 
     def on_autoloop_error(self, editor_widget, error):
+        if editor_widget in self.autoloop_threads: del self.autoloop_threads[editor_widget]
         editor_widget.on_autoloop_finished(None) # Reset the specific widget's UI
         self.on_command_error(error)
+
+    def on_cancel_autoloop(self, editor_widget):
+        """Cancels the running auto-loop task for the specific widget."""
+        if editor_widget in self.autoloop_threads:
+            thread, worker = self.autoloop_threads[editor_widget]
+            if thread.isRunning():
+                thread.terminate()
+                thread.wait()
+            del self.autoloop_threads[editor_widget]
+            editor_widget.on_autoloop_finished(None)
+            self.update_status_bar.emit("Auto-loop cancelled.", 2000)
 
     def _prompt_for_acb_file(self, acb_filename_stem):
         """Opens a file dialog to locate an ACB file and returns the selected path or None."""
