@@ -336,7 +336,7 @@ class ModBuilderGUI(QMainWindow):
 
         # Prepare keywords from the friendly name (e.g., "Ocean View" -> ["ocean", "view"])
         # Also remove characters that might be in filenames but not titles
-        keywords = friendly_name.lower().replace(":", "").replace("-", "").split()
+        keywords = friendly_name.lower().replace(":", "").replace("-", "").replace("&", "").split()
         if not keywords:
             return "" # No keywords to search for
 
@@ -391,12 +391,12 @@ class ModBuilderGUI(QMainWindow):
                     continue
                 
                 # Special handling for guest characters to ensure they only appear in the Misc tab.
-                is_guest_char = acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA"]
+                is_guest_char = acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA", "SE_EXTND15_CHARA"]
                 if (tab_name == "Voices" and is_guest_char):
                     continue
 
                 # Exclude character music packs from DLC Stages tab (they are accessed via Misc -> Character)
-                if prefix == "BGM_EXTND" and acb_stem in ["BGM_EXTND10", "BGM_EXTND11", "BGM_EXTND12"]:
+                if prefix == "BGM_EXTND" and acb_stem in ["BGM_EXTND10", "BGM_EXTND11", "BGM_EXTND12", "BGM_EXTND15"]:
                     continue
 
                 if acb_stem.startswith(prefix):
@@ -602,7 +602,7 @@ class ModBuilderGUI(QMainWindow):
     def on_card_selected(self, acb_stem, friendly_name):
         """Handles the click event from an ImageCard."""
         # New logic for misc characters
-        if acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA"]:
+        if acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA", "SE_EXTND15_CHARA"]:
             msg_box = QMessageBox(self)
             msg_box.setWindowTitle(f"Select Mod Type for {friendly_name}")
             msg_box.setText(f"Which audio type do you want to modify for {friendly_name}?")
@@ -821,6 +821,9 @@ class ModBuilderGUI(QMainWindow):
         elif acb_stem == "SE_EXTND12_CHARA": # Ichiban
             track_dict = data.VOICE_EXTND12_CHARA_TRACKS
             is_voice_acb = True # Treat her like a voice ACB for UI purposes
+        elif acb_stem == "SE_EXTND15_CHARA": # NiGHTS
+            track_dict = data.VOICE_EXTND15_CHARA_TRACKS
+            is_voice_acb = True
         elif acb_stem == "BGM_EXTND04": # Minecraft uses its own full dictionary
             track_dict = data.DLC_MINECRAFT_TRACKS
         elif acb_stem == "BGM":
@@ -1174,7 +1177,7 @@ class ModBuilderGUI(QMainWindow):
         acb_path = Path(filepath)
         acb_stem = acb_path.stem
 
-        if acb_stem.startswith("VOICE_") or acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA"] or acb_stem == "BGM" or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_COURSE":
+        if acb_stem.startswith("VOICE_") or acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA", "SE_EXTND15_CHARA"] or acb_stem == "BGM" or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_COURSE":
             self.special_track_frame.setVisible(True)
             self._populate_special_track_frame(acb_stem)
         else:
@@ -1258,7 +1261,7 @@ class ModBuilderGUI(QMainWindow):
         # --- Prepare list of conversions to run ---
         acb_stem = acb_path.stem
         tasks = [] # hca_name, path, is_looping, start, end
-        if acb_stem.startswith("VOICE_") or acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA"] or acb_stem == "BGM" or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_COURSE":
+        if acb_stem.startswith("VOICE_") or acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA", "SE_EXTND15_CHARA"] or acb_stem == "BGM" or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_COURSE":
             for hca_name, var_dict in self.special_track_vars.items():
                 if var_dict.path_edit.text():
                     is_looping = var_dict.loop_checkbox and var_dict.loop_checkbox.isChecked()
@@ -1391,7 +1394,7 @@ class ModBuilderGUI(QMainWindow):
         replacement_map = {}
 
         acb_stem = Path(self._acb_file).stem
-        is_special_acb_for_onetoone = acb_stem.startswith("VOICE_") or acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA"] or acb_stem == "BGM" or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_COURSE"
+        is_special_acb_for_onetoone = acb_stem.startswith("VOICE_") or acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA", "SE_EXTND15_CHARA"] or acb_stem == "BGM" or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_COURSE"
         is_crossworlds = acb_stem.startswith("BGM_STG2")
 
         # --- Define Special Track Structures ---
@@ -1447,6 +1450,19 @@ class ModBuilderGUI(QMainWindow):
                 for main, short in miku_shorts.items():
                     if (OUTPUT_DIR / f"{main}.hca").exists():
                         replacement_map[f"{short}.hca"] = f"{main}.hca"
+            
+            # Handle implicit shorts for PAC-MAN (BGM_EXTND06)
+            if acb_stem == "BGM_EXTND06":
+                pacman_shorts = {
+                    "00043_streaming": ["00044_streaming", "00045_streaming"], # PAC-Village -> shorts
+                    "00046_streaming": ["00047_streaming"], # Maze -> short
+                    "00048_streaming": ["00049_streaming"], # PAC-Village FL -> short
+                    "00050_streaming": ["00051_streaming"], # Maze FL -> short
+                }
+                for main, shorts in pacman_shorts.items():
+                    if (OUTPUT_DIR / f"{main}.hca").exists():
+                        for short in shorts:
+                            replacement_map[f"{short}.hca"] = f"{main}.hca"
 
         elif acb_stem in special_structures:
             print(f"Applying special structure for {acb_stem}...")

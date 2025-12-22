@@ -24,9 +24,11 @@ BGM_DATA = {
     "DLC Tracks": {
         "EXTND04": "Minecraft World",
         "EXTND05": "BiKiNi Bottom",
+        "EXTND06": "PAC-Village & Maze",
         "EXTND10": "Miku (Music)",
         "EXTND11": "Joker (Music)",
         "EXTND12": "Ichiban Kasuga (Music)",
+        "EXTND15": "NiGHTS (Music)",
     },
     "Voice Lines": {
         "SON": "Sonic",
@@ -58,6 +60,7 @@ BGM_DATA = {
         "EXTND10_CHARA": "Miku",
         "EXTND11_CHARA": "Joker",
         "EXTND12_CHARA": "Ichiban Kasuga",
+        "EXTND15_CHARA": "NiGHTS",
     }
 }
 
@@ -134,23 +137,56 @@ DLC_ICHIBAN_TRACKS = {
     "Results Music": "00022_streaming",
 }
 
+DLC_PACMAN_TRACKS = {
+    "PAC-MAN Ceremony": "00040_streaming",
+    "GHOSTS Ceremony": "00041_streaming",
+    "Character Select": "00042_streaming",
+    "PAC-Village": "00043_streaming",
+    "Maze": "00046_streaming",
+    "PAC-Village Final Lap": "00048_streaming",
+    "Maze Final Lap": "00050_streaming",
+    "PAC-Village Intro": "00052_streaming",
+    "Results": "00057_streaming",
+    "PAC-Village Race Finish Jingle": "00058_streaming",
+}
+
+DLC_NIGHTS_TRACKS = {
+    "Ceremony": "00039_streaming",
+    "Character Select": "00040_streaming",
+    "Dreams Dreams": "00041_streaming",
+    "Dreams Dreams Final Lap": "00042_streaming",
+    "Growing Wings": "00043_streaming",
+    "Growing Wings Final Lap": "00044_streaming",
+    "Message From Nightopia": "00045_streaming",
+    "Message From Nightopia Final Lap": "00046_streaming",
+    "Race Results 1 (Vocals)": "00047_streaming",
+    "Race Results 2": "00048_streaming",
+    "Race Results 3": "00049_streaming",
+    "Race Results 4": "00050_streaming",
+}
+
 NON_LOOPABLE_SPECIAL_TRACKS = {
     "BGM_EXTND10": ["00082_streaming"], # Miku's Ceremony Jingle
     "BGM_EXTND11": ["00021_streaming"], # Joker's Ceremony Jingle
     "BGM_EXTND12": ["00019_streaming"], # Ichiban's Ceremony Jingle
+    "BGM_EXTND06": ["00040_streaming", "00041_streaming", "00052_streaming", "00058_streaming"], # Pac-Man Ceremonies, Intro, Finish
+    "BGM_EXTND15": ["00039_streaming"], # NiGHTS Ceremony
 }
 
 # A map to easily get the correct dictionary for a given ACB stem
 SPECIAL_TRACK_MAP = {
     "BGM": MENU_BGM_TRACKS,
     "BGM_EXTND05": DLC_SPONGEBOB_TRACKS,
+    "BGM_EXTND06": DLC_PACMAN_TRACKS,
     # Guest character music packs
     "BGM_EXTND10": DLC_MIKU_TRACKS,
     "BGM_EXTND11": DLC_JOKER_TRACKS,
     "BGM_EXTND12": DLC_ICHIBAN_TRACKS,
+    "BGM_EXTND15": DLC_NIGHTS_TRACKS,
     "SE_EXTND10_CHARA": None, # Will be populated dynamically
     "SE_EXTND11_CHARA": None, # Will be populated dynamically
     "SE_EXTND12_CHARA": None, # Will be populated dynamically
+    "SE_EXTND15_CHARA": None, # Will be populated dynamically
     "SE_COURSE": None, # Will be populated dynamically
 }
 
@@ -217,6 +253,22 @@ VOICE_EXTND12_CHARA_TRACKS = {
     "10: Lobby Stamp 03": "00009",
     "11: Lobby Stamp 01": "00010",
     "12: Lobby Stamp 06": "00011",
+}
+
+VOICE_EXTND15_CHARA_TRACKS = {
+    "1: Lobby Stamp 06": "00000",
+    "2: Character Select": "00001",
+    "3: Lobby Stamp 05": "00002",
+    "4: Lobby Stamp 01": "00003",
+    "5: Lobby Stamp 03": "00004",
+    "6: Dash 03": "00005",
+    "7: Item Use": "00006",
+    "8: Lobby Stamp 04": "00007",
+    "9: Stunt 01; Stunt 02": "00008",
+    "10: Stunt 03": "00009",
+    "11: Dash 01": "00010",
+    "12: Dash 02": "00011",
+    "13: Lobby Stamp 02": "00012",
 }
 
 SE_COURSE_TRACKS = {

@@ -1,6 +1,6 @@
 @echo OFF
 :Start
-echo (Sonic Racing: Crossworlds v1.1.2)
+echo (Sonic Racing: Crossworlds v1.2.0)
 echo.
 echo Enter the name of the .acb you're modifying (without file extension, case sensitive)
 echo Example: BGM_STG1001
@@ -30,6 +30,10 @@ exit
 VGAudioCli.exe -b -i input -o output --out-format hca --keycode 5393367454849679208
 pause
 exit
+:option-BGM_EXTND06
+VGAudioCli.exe -b -i input -o output --out-format hca --keycode 815538018065053904
+pause
+exit
 :option-BGM_EXTND10
 VGAudioCli.exe -b -i input -o output --out-format hca --keycode 14635606071112671560
 pause
@@ -42,8 +46,28 @@ exit
 VGAudioCli.exe -b -i input -o output --out-format hca --keycode 13441957704310774890
 pause
 exit
+:option-BGM_EXTND13
+VGAudioCli.exe -b -i input -o output --out-format hca --keycode 9477487605727680134
+pause
+exit
+:option-BGM_EXTND14
+VGAudioCli.exe -b -i input -o output --out-format hca --keycode 13595238330747442342
+pause
+exit
+:option-BGM_EXTND15
+VGAudioCli.exe -b -i input -o output --out-format hca --keycode 9555398680851192936
+pause
+exit
 :option-BGM_EXTND23
 VGAudioCli.exe -b -i input -o output --out-format hca --keycode 3555604298289421126
+pause
+exit
+:option-BGM_EXTND26
+VGAudioCli.exe -b -i input -o output --out-format hca --keycode 1954072591094621914
+pause
+exit
+:option-BGM_EXTND27
+VGAudioCli.exe -b -i input -o output --out-format hca --keycode 2127749041207264570
 pause
 exit
 :option-BGM_GP_01_FINAL
@@ -76,6 +100,10 @@ pause
 exit
 :option-BGM_GP_08_FINAL
 VGAudioCli.exe -b -i input -o output --out-format hca --keycode 8274136641905236186
+pause
+exit
+:option-BGM_GP_09_FINAL_EXTND04_05_06
+VGAudioCli.exe -b -i input -o output --out-format hca --keycode 16457636253212223100
 pause
 exit
 :option-BGM_JBM0001
@@ -314,10 +342,6 @@ exit
 VGAudioCli.exe -b -i input -o output --out-format hca --keycode 12021123454303658246
 pause
 exit
-:option-BGM_JBM0073
-VGAudioCli.exe -b -i input -o output --out-format hca --keycode 3555604298289421126
-pause
-exit
 :option-BGM_STG1001
 VGAudioCli.exe -b -i input -o output --out-format hca --keycode 11066441593317001650
 pause
@@ -485,22 +509,10 @@ pause
 exit
 :option-SE_DSH_51_ENGINE
 VGAudioCli.exe -b -i input -o output --out-format adx --keycode 9510978113734292202
-pause
+pauseS
 exit
 :option-SE_ENGINE
 VGAudioCli.exe -b -i input -o output --out-format adx --keycode 14759068409123114958
-pause
-exit
-:option-SE_EXTND03_CHARA
-VGAudioCli.exe -b -i input -o output --out-format hca --keycode 9216240783286415086
-pause
-exit
-:option-SE_EXTND03_ENGINE
-VGAudioCli.exe -b -i input -o output --out-format adx --keycode 9510978113734292202
-pause
-exit
-:option-SE_EXTND03_HORN
-VGAudioCli.exe -b -i input -o output --out-format hca --keycode 10878679829238841482
 pause
 exit
 :option-SE_EXTND04_CHARA
@@ -533,6 +545,22 @@ pause
 exit
 :option-SE_EXTND05_STG1506
 VGAudioCli.exe -b -i input -o output --out-format hca --keycode 15941032919634703054
+pause
+exit
+:option-SE_EXTND06_CHARA
+VGAudioCli.exe -b -i input -o output --out-format hca --keycode 1325594009477255518
+pause
+exit
+:option-SE_EXTND06_ENGINE
+VGAudioCli.exe -b -i input -o output --out-format adx --keycode 501912458301241400
+pause
+exit
+:option-SE_EXTND06_HORN
+VGAudioCli.exe -b -i input -o output --out-format hca --keycode 5226238346902354984
+pause
+exit
+:option-SE_EXTND06_STG1502
+VGAudioCli.exe -b -i input -o output --out-format hca --keycode 2169154419604085672
 pause
 exit
 :option-SE_EXTND10_CHARA
@@ -571,8 +599,48 @@ exit
 VGAudioCli.exe -b -i input -o output --out-format hca --keycode 4485507618655132284
 pause
 exit
+:option-SE_EXTND13_CHARA
+VGAudioCli.exe -b -i input -o output --out-format hca --keycode 16200535315261067546
+pause
+exit
+:option-SE_EXTND13_HORN
+VGAudioCli.exe -b -i input -o output --out-format hca --keycode 18145510870645903316
+pause
+exit
+:option-SE_EXTND14_CHARA
+VGAudioCli.exe -b -i input -o output --out-format hca --keycode 14747621385287667124
+pause
+exit
+:option-SE_EXTND14_ENGINE
+VGAudioCli.exe -b -i input -o output --out-format adx --keycode 12774948866881517810
+pause
+exit
+:option-SE_EXTND14_HORN
+VGAudioCli.exe -b -i input -o output --out-format hca --keycode 3584808855670774486
+pause
+exit
+:option-SE_EXTND15_CHARA
+VGAudioCli.exe -b -i input -o output --out-format hca --keycode 4354744141299350546
+pause
+exit
+:option-SE_EXTND15_ENGINE
+VGAudioCli.exe -b -i input -o output --out-format adx --keycode 16074057788530544516
+pause
+exit
+:option-SE_EXTND15_HORN
+VGAudioCli.exe -b -i input -o output --out-format hca --keycode 14387690765456904116
+pause
+exit
+:option-SE_GADGET_Patch2
+VGAudioCli.exe -b -i input -o output --out-format adx --keycode 470069610789818362
+pause
+exit
 :option-SE_ITEM
 VGAudioCli.exe -b -i input -o output --out-format adx --keycode 14573568036585014514
+pause
+exit
+:option-SE_LEGENDCOMPE
+VGAudioCli.exe -b -i input -o output --out-format adx --keycode 2753966231284571242
 pause
 exit
 :option-SE_MACHINE
@@ -983,7 +1051,12 @@ echo BGM_EXTND05
 echo BGM_EXTND10
 echo BGM_EXTND11
 echo BGM_EXTND12
+echo BGM_EXTND13
+echo BGM_EXTND14
+echo BGM_EXTND15
 echo BGM_EXTND23
+echo BGM_EXTND26
+echo BGM_EXTND27
 echo BGM_GP_01_FINAL
 echo BGM_GP_02_FINAL
 echo BGM_GP_03_FINAL
@@ -992,6 +1065,7 @@ echo BGM_GP_05_FINAL
 echo BGM_GP_06_FINAL
 echo BGM_GP_07_FINAL
 echo BGM_GP_08_FINAL
+echo BGM_GP_09_FINAL_EXTND04_05_06
 echo BGM_JBM0001
 echo BGM_JBM0002
 echo BGM_JBM0003
@@ -1051,7 +1125,6 @@ echo BGM_JBM0064
 echo BGM_JBM0065
 echo BGM_JBM0066
 echo BGM_JBM0067
-echo BGM_JBM0073
 echo BGM_STG1001
 echo BGM_STG1003
 echo BGM_STG1005
@@ -1095,9 +1168,6 @@ echo SE_ADV
 echo SE_COURSE
 echo SE_DSH_51_ENGINE
 echo SE_ENGINE
-echo SE_EXTND03_CHARA
-echo SE_EXTND03_ENGINE
-echo SE_EXTND03_HORN
 echo SE_EXTND04_CHARA
 echo SE_EXTND04_ENGINE
 echo SE_EXTND04_HORN
@@ -1106,6 +1176,10 @@ echo SE_EXTND05_CHARA
 echo SE_EXTND05_ENGINE
 echo SE_EXTND05_HORN
 echo SE_EXTND05_STG1506
+echo SE_EXTND06_CHARA
+echo SE_EXTND06_ENGINE
+echo SE_EXTND06_HORN
+echo SE_EXTND06_STG1502
 echo SE_EXTND10_CHARA
 echo SE_EXTND10_ENGINE
 echo SE_EXTND10_HORN
@@ -1115,7 +1189,17 @@ echo SE_EXTND11_HORN
 echo SE_EXTND12_CHARA
 echo SE_EXTND12_ENGINE
 echo SE_EXTND12_HORN
+echo SE_EXTND13_CHARA
+echo SE_EXTND13_HORN
+echo SE_EXTND14_CHARA
+echo SE_EXTND14_ENGINE
+echo SE_EXTND14_HORN
+echo SE_EXTND15_CHARA
+echo SE_EXTND15_ENGINE
+echo SE_EXTND15_HORN
+echo SE_GADGET_Patch2
 echo SE_ITEM
+echo SE_LEGENDCOMPE
 echo SE_MACHINE
 echo SE_MENU
 echo SE_MOVIE_SOUND
