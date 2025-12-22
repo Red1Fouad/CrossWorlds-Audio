@@ -7,10 +7,10 @@ import shutil
 
 try:
     from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel, QLineEdit,
-                                   QPushButton, QFileDialog, QMessageBox, QTreeWidget, QTreeWidgetItem, QTabWidget, QGridLayout,
+                                   QPushButton, QFileDialog, QMessageBox, QTreeWidget, QTreeWidgetItem, QTabWidget, QGridLayout, QSplashScreen,
                                    QScrollArea, QFrame, QMenuBar, QStatusBar, QProgressBar)
     from PySide6.QtCore import Qt, QThread, Signal, QObject, QTimer
-    from PySide6.QtGui import QDesktopServices, QShortcut, QKeySequence, QIcon
+    from PySide6.QtGui import QDesktopServices, QShortcut, QKeySequence, QIcon, QPixmap
     from PySide6.QtCore import QUrl
 except ImportError:
     print("Error: PySide6 module not found. Please install it using 'pip install PySide6'")
@@ -32,6 +32,25 @@ APP_VERSION = "1.4"
 SESSION_FILE = Path("session.json")
 GITHUB_REPO = "Red1Fouad/CrossWorlds-Audio"
 
+# --- Track Indices Mapping ---
+# Format: "BGM_STGxxxx": (announce_idx, trans_idx, trans_short_idx)
+# Indices are 0-based (User Input - 1). None means the track does not exist.
+ADDITIONAL_TRACK_INDICES = {
+    "BGM_STG1001": (5, 6, 7), "BGM_STG1003": (5, 6, 7), "BGM_STG1005": (5, 6, None),
+    "BGM_STG1016": (5, 7, 6), "BGM_STG1017": (5, 7, 6), "BGM_STG1018": (5, 7, 6),
+    "BGM_STG1020": (5, 6, None), "BGM_STG1021": (5, 6, 7), "BGM_STG1022": (5, 7, 6),
+    "BGM_STG1023": (5, 7, 6), "BGM_STG1024": (5, 6, 7), "BGM_STG1025": (5, 6, None),
+    "BGM_STG1026": (6, 7, 8), "BGM_STG1027": (5, 6, None), "BGM_STG1028": (5, 6, 7),
+    "BGM_STG1029": (5, 6, None), "BGM_STG1030": (4, 5, 6), "BGM_STG1031": (5, 7, 6),
+    "BGM_STG1032": (5, 7, 6), "BGM_STG1033": (5, 6, None), "BGM_STG1034": (6, 7, None),
+    "BGM_STG1035": (5, 6, 7), "BGM_STG1036": (5, 6, None), "BGM_STG1037": (5, 6, 7),
+    "BGM_STG2001": (4, 14, 5), "BGM_STG2002": (4, 5, 6), "BGM_STG2003": (4, 6, 5),
+    "BGM_STG2004": (3, 5, 4), "BGM_STG2005": (4, 5, 6), "BGM_STG2007": (4, 5, 6),
+    "BGM_STG2009": (4, 5, 6), "BGM_STG2010": (4, 6, 5), "BGM_STG2011": (4, 5, 6),
+    "BGM_STG2012": (4, 5, None), "BGM_STG2014": (4, 5, 6), "BGM_STG2015": (4, 5, None),
+    "BGM_STG2016": (4, 5, 6), "BGM_STG2017": (4, 5, 6), "BGM_STG2019": (4, 5, None),
+}
+
 def find_loop_points_task(file_path_str):
     """
     Task to run in a background thread for finding loop points using the pymusiclooper CLI.
@@ -40,17 +59,25 @@ def find_loop_points_task(file_path_str):
     import subprocess
     import re
 
-    command = [
-        sys.executable,  # Use the same python interpreter that's running the app
-        "-m",
-        "pymusiclooper",
-        "export-points",
-        "--path",
-        file_path_str
-    ]
+    # Determine command based on environment (Frozen/Packaged vs Source)
+    if getattr(sys, 'frozen', False):
+        # If running as a packaged exe, assume pymusiclooper is in the system PATH
+        command = ["pymusiclooper", "export-points", "--path", file_path_str]
+    else:
+        # If running from source, use the current python interpreter
+        command = [
+            sys.executable,
+            "-m",
+            "pymusiclooper",
+            "export-points",
+            "--path",
+            file_path_str
+        ]
 
     try:
-        result = subprocess.run(command, check=True, capture_output=True, text=True, encoding='utf-8')
+        # Prevent console window popup on Windows
+        cflags = 0x08000000 if sys.platform == "win32" else 0
+        result = subprocess.run(command, check=True, capture_output=True, text=True, encoding='utf-8', creationflags=cflags)
         output = result.stdout
         start_match = re.search(r"LOOP_START: (\d+)", output)
         end_match = re.search(r"LOOP_END: (\d+)", output)
@@ -83,7 +110,7 @@ class ModBuilderGUI(QMainWindow):
     # A dedicated, thread-safe signal for updating the status bar
     update_status_bar = Signal(str, int)
 
-    def __init__(self):
+    def __init__(self, splash=None):
         super().__init__()
         self.base_title = f"CrossWorlds Music Mod Builder v{APP_VERSION}"
         self.setWindowTitle("CrossWorlds Music Mod Builder - Select a Category")
@@ -154,8 +181,20 @@ class ModBuilderGUI(QMainWindow):
         self._create_editor_screen(QVBoxLayout(self.editor_screen))
 
         # --- Load settings after UI is created ---
+        app = QApplication.instance()
+        if splash:
+            splash.showMessage("Loading settings...", Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter, Qt.white)
+            if app: app.processEvents()
         self.load_settings()
+
+        if splash:
+            splash.showMessage("Loading session data...", Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter, Qt.white)
+            if app: app.processEvents()
         self.load_session_data()
+
+        if splash:
+            splash.showMessage("Initializing UI...", Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter, Qt.white)
+            if app: app.processEvents()
         self.update_recent_files_menu()
         self.editor_screen.setVisible(False)
 
@@ -174,6 +213,9 @@ class ModBuilderGUI(QMainWindow):
         self.status_bar.addPermanentWidget(version_label)
 
         # Check for updates on startup
+        if splash:
+            splash.showMessage("Checking for updates...", Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter, Qt.white)
+            if app: app.processEvents()
         QTimer.singleShot(1000, self.check_for_updates) # Delay slightly to not block startup
 
         self.update_status_bar.emit("Ready.", 0)
@@ -447,7 +489,34 @@ class ModBuilderGUI(QMainWindow):
         self.final_lap_track_vars.normalize_requested.connect(lambda path: self._update_path_after_normalize(self.final_lap_track_vars, path, 'music'))
         stage_layout.addWidget(self.final_lap_track_vars)
 
-        self.all_track_editors.extend([self.intro_track_vars, self.lap1_track_vars, self.final_lap_track_vars])
+        self.transition_track_vars = TrackEditorWidget("Transition Music (Normal)")
+        self.transition_track_vars.play_requested.connect(self.on_play_requested)
+        self.transition_track_vars.autoloop_requested.connect(self.on_autoloop_requested)
+        self.transition_track_vars.normalize_requested.connect(lambda path: self._update_path_after_normalize(self.transition_track_vars, path, 'music'))
+        stage_layout.addWidget(self.transition_track_vars)
+
+        # Add Copy Button
+        copy_btn_layout = QHBoxLayout()
+        copy_btn_layout.addStretch()
+        self.copy_trans_btn = QPushButton("↓ Copy Normal Transition settings to Short Transition ↓")
+        self.copy_trans_btn.clicked.connect(self.copy_transition_settings)
+        copy_btn_layout.addWidget(self.copy_trans_btn)
+        copy_btn_layout.addStretch()
+        stage_layout.addLayout(copy_btn_layout)
+
+        self.transition_short_track_vars = TrackEditorWidget("Transition Music (Short)")
+        self.transition_short_track_vars.play_requested.connect(self.on_play_requested)
+        self.transition_short_track_vars.autoloop_requested.connect(self.on_autoloop_requested)
+        self.transition_short_track_vars.normalize_requested.connect(lambda path: self._update_path_after_normalize(self.transition_short_track_vars, path, 'music'))
+        stage_layout.addWidget(self.transition_short_track_vars)
+
+        self.announce_track_vars = TrackEditorWidget("Final Lap Announcement")
+        self.announce_track_vars.play_requested.connect(self.on_play_requested)
+        self.announce_track_vars.autoloop_requested.connect(self.on_autoloop_requested)
+        self.announce_track_vars.normalize_requested.connect(lambda path: self._update_path_after_normalize(self.announce_track_vars, path, 'music'))
+        stage_layout.addWidget(self.announce_track_vars)
+
+        self.all_track_editors.extend([self.intro_track_vars, self.lap1_track_vars, self.final_lap_track_vars, self.transition_track_vars, self.transition_short_track_vars, self.announce_track_vars])
         # --- New Menu Music Frame ---
         # This single frame will be used for Menu, Voice, and DLC tracks
         self.special_track_frame = QWidget()
@@ -474,6 +543,12 @@ class ModBuilderGUI(QMainWindow):
         convert_btn_layout.addWidget(self.convert_button)
         
         convert_outer_layout.addLayout(convert_btn_layout)
+
+    def copy_transition_settings(self):
+        self.transition_short_track_vars.path_edit.setText(self.transition_track_vars.path_edit.text())
+        self.transition_short_track_vars.loop_checkbox.setChecked(self.transition_track_vars.loop_checkbox.isChecked())
+        self.transition_short_track_vars.loop_start_edit.setText(self.transition_track_vars.loop_start_edit.text())
+        self.transition_short_track_vars.loop_end_edit.setText(self.transition_track_vars.loop_end_edit.text())
 
     def on_card_selected(self, acb_stem, friendly_name):
         """Handles the click event from an ImageCard."""
@@ -590,6 +665,9 @@ class ModBuilderGUI(QMainWindow):
         self.intro_track_vars.loop_checkbox.setChecked(False)
         self.lap1_track_vars.loop_checkbox.setChecked(False)
         self.final_lap_track_vars.loop_checkbox.setChecked(False)
+        self.transition_track_vars.loop_checkbox.setChecked(False)
+        self.transition_short_track_vars.loop_checkbox.setChecked(False)
+        self.announce_track_vars.loop_checkbox.setChecked(False)
 
     def check_for_updates(self):
         """Initiates a background check for a new version on GitHub."""
@@ -656,7 +734,7 @@ class ModBuilderGUI(QMainWindow):
         """Dynamically populates the special tracks frame with the correct selectors."""
         self._clear_layout(self.special_track_frame.layout())
         self.special_track_vars.clear()
-        self.all_track_editors = [self.intro_track_vars, self.lap1_track_vars, self.final_lap_track_vars] # Reset
+        self.all_track_editors = [self.intro_track_vars, self.lap1_track_vars, self.final_lap_track_vars, self.transition_track_vars, self.transition_short_track_vars, self.announce_track_vars] # Reset
         self.voice_search_bar = None
         track_dict = {}
         is_voice_acb = acb_stem.startswith("VOICE_")
@@ -812,6 +890,46 @@ class ModBuilderGUI(QMainWindow):
         if new_path:
             editor.path_edit.setText(new_path)
 
+    def install_package(self, package_name, editor_widget):
+        self.update_status_bar.emit(f"Installing {package_name}...", 0)
+        editor_widget.on_autoloop_started() # Show the progress bar on the widget
+
+        self.run_command_threaded(
+            self._pip_install,
+            on_complete=lambda result: self.on_install_complete(result, package_name, editor_widget),
+            on_error=lambda error: self.on_install_error(error, package_name, editor_widget),
+            args=(package_name,)
+        )
+
+    def _pip_install(self, package_name):
+        import subprocess
+        command = [sys.executable, "-m", "pip", "install", package_name]
+        try:
+            # For Windows, to prevent a console window from popping up
+            cflags = 0x08000000 if sys.platform == "win32" else 0
+            # Using capture_output to hide the pip install text from the console unless there's an error
+            result = subprocess.run(command, check=True, capture_output=True, text=True, encoding='utf-8', creationflags=cflags)
+            return result.stdout
+        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+            stderr = e.stderr if hasattr(e, 'stderr') else "N/A"
+            raise RuntimeError(f"Failed to install '{package_name}'.\n"
+                               f"Command: {' '.join(command)}\n"
+                               f"Error: {e}\nDetails: {stderr}") from e
+
+    def on_install_complete(self, result, package_name, editor_widget):
+        self.update_status_bar.emit(f"Successfully installed {package_name}.", 5000)
+        editor_widget.on_autoloop_finished(None) # Reset UI
+        QMessageBox.information(self, "Installation Successful",
+                                f"'{package_name}' has been installed successfully.\n\n"
+                                "Please restart the application to use this feature.")
+
+    def on_install_error(self, error, package_name, editor_widget):
+        editor_widget.on_autoloop_finished(None) # Reset the specific widget's UI
+        self.update_status_bar.emit(f"Failed to install {package_name}.", 0)
+        error_message = (f"Failed to install '{package_name}'.\n\nPlease ensure you have Python and pip installed and accessible from your system's PATH.\nYou can also try installing it manually by opening a command prompt and running:\n\npip install {package_name}\n\nDetails:\n{error}")
+        QMessageBox.critical(self, "Installation Failed", error_message)
+        self.reset_ui_state() # Reset global buttons
+
     def on_autoloop_requested(self, editor_widget, file_path_str):
         """Handles the auto-loop request from a TrackEditorWidget."""
         if not file_path_str or not Path(file_path_str).exists():
@@ -835,10 +953,35 @@ class ModBuilderGUI(QMainWindow):
         editor_widget.on_autoloop_started()
         self.update_status_bar.emit(f"Finding loop points for '{Path(file_path_str).name}'...", 0)
 
+        # Check if pymusiclooper is available (either bundled or in system PATH)
+        has_pymusiclooper = False
         try:
             import pymusiclooper
+            has_pymusiclooper = True
         except ImportError:
-            self.on_autoloop_error(editor_widget, Exception("pymusiclooper is not installed. Please run 'pip install pymusiclooper'."))
+            # If import fails, check if it's in the system PATH (e.g. installed globally)
+            if shutil.which("pymusiclooper"):
+                has_pymusiclooper = True
+
+        if not has_pymusiclooper:
+            # If frozen (packaged), we can't auto-install easily. Tell user to install globally.
+            if getattr(sys, 'frozen', False):
+                QMessageBox.warning(self, "Dependency Missing",
+                                      "The 'Auto-Loop' feature requires 'pymusiclooper'.\n\n"
+                                      "Since you are using the packaged version, please install it manually by opening a command prompt and running:\n\n"
+                                      "pip install pymusiclooper")
+                editor_widget.on_autoloop_finished(None)
+                return
+
+            # If running from source, offer auto-install
+            reply = QMessageBox.warning(self, "Dependency Missing",
+                                          "The 'Auto-Loop' feature requires the 'pymusiclooper' package, which is not installed.\n\n"
+                                          "Would you like to attempt to install it now? (Requires an internet connection)",
+                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            if reply == QMessageBox.StandardButton.Yes:
+                self.install_package('pymusiclooper', editor_widget)
+            else:
+                editor_widget.on_autoloop_finished(None) # Reset the UI
             return
 
         self.run_command_threaded(
@@ -901,7 +1044,7 @@ class ModBuilderGUI(QMainWindow):
         self._unpacked_folder = ""
         self.convert_button.setEnabled(False)
 
-        for track in [self.intro_track_vars, self.lap1_track_vars, self.final_lap_track_vars]:
+        for track in [self.intro_track_vars, self.lap1_track_vars, self.final_lap_track_vars, self.transition_track_vars, self.transition_short_track_vars, self.announce_track_vars]:
             track.path_edit.clear()
             if track.loop_checkbox:
                 track.loop_checkbox.setChecked(False)
@@ -940,6 +1083,15 @@ class ModBuilderGUI(QMainWindow):
                 self.intro_track_vars.setVisible(False)
             else:
                 self.intro_track_vars.setVisible(True)
+            
+            # Hide/Show Short Transition based on availability
+            if acb_stem in ADDITIONAL_TRACK_INDICES:
+                _, _, trans_short_idx = ADDITIONAL_TRACK_INDICES[acb_stem]
+                self.transition_short_track_vars.setVisible(trans_short_idx is not None)
+                self.copy_trans_btn.setVisible(trans_short_idx is not None)
+            else:
+                self.transition_short_track_vars.setVisible(True)
+                self.copy_trans_btn.setVisible(True)
 
         # Restore state for the NEW ACB
         self._restore_track_state()
@@ -1023,6 +1175,12 @@ class ModBuilderGUI(QMainWindow):
                 tasks.append(("lap1", self.lap1_track_vars.path_edit.text(), self.lap1_track_vars.loop_checkbox.isChecked(), self.lap1_track_vars.loop_start_edit.text(), self.lap1_track_vars.loop_end_edit.text()))
             if self.final_lap_track_vars.path_edit.text():
                 tasks.append(("final_lap", self.final_lap_track_vars.path_edit.text(), self.final_lap_track_vars.loop_checkbox.isChecked(), self.final_lap_track_vars.loop_start_edit.text(), self.final_lap_track_vars.loop_end_edit.text()))
+            if self.transition_track_vars.path_edit.text():
+                tasks.append(("transition", self.transition_track_vars.path_edit.text(), self.transition_track_vars.loop_checkbox.isChecked(), self.transition_track_vars.loop_start_edit.text(), self.transition_track_vars.loop_end_edit.text()))
+            if self.transition_short_track_vars.path_edit.text():
+                tasks.append(("transition_short", self.transition_short_track_vars.path_edit.text(), self.transition_short_track_vars.loop_checkbox.isChecked(), self.transition_short_track_vars.loop_start_edit.text(), self.transition_short_track_vars.loop_end_edit.text()))
+            if self.announce_track_vars.path_edit.text():
+                tasks.append(("announce", self.announce_track_vars.path_edit.text(), self.announce_track_vars.loop_checkbox.isChecked(), self.announce_track_vars.loop_start_edit.text(), self.announce_track_vars.loop_end_edit.text()))
         
         # Validate loop points for commas
         for name, _, is_looping, start, end in tasks:
@@ -1206,6 +1364,22 @@ class ModBuilderGUI(QMainWindow):
                 if len(self.original_files) > 4:
                     replacement_map[self.original_files[4]] = "intro.hca" # Intro
 
+        # Apply additional tracks (Announce, Transition, Transition Short)
+        if acb_stem in ADDITIONAL_TRACK_INDICES:
+            ann_idx, trans_idx, trans_short_idx = ADDITIONAL_TRACK_INDICES[acb_stem]
+            
+            if ann_idx is not None and (OUTPUT_DIR / "announce.hca").exists():
+                if ann_idx < len(self.original_files):
+                    replacement_map[self.original_files[ann_idx]] = "announce.hca"
+            
+            if trans_idx is not None and (OUTPUT_DIR / "transition.hca").exists():
+                if trans_idx < len(self.original_files):
+                    replacement_map[self.original_files[trans_idx]] = "transition.hca"
+
+            if trans_short_idx is not None and (OUTPUT_DIR / "transition_short.hca").exists():
+                if trans_short_idx < len(self.original_files):
+                    replacement_map[self.original_files[trans_short_idx]] = "transition_short.hca"
+
         try:
             files_replaced = self.logic.apply_replacements(self._unpacked_folder, replacement_map)
             if files_replaced > 0:
@@ -1339,6 +1513,18 @@ class ModBuilderGUI(QMainWindow):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    window = ModBuilderGUI()
+
+    # Create and show splash screen
+    splash_pix = QPixmap("tools/splash.png")
+    if splash_pix.isNull():
+        # If splash.png is not found, use the app icon as a fallback
+        splash_pix = QPixmap("tools/ico.ico")
+    
+    splash = QSplashScreen(splash_pix, Qt.WindowType.WindowStaysOnTopHint)
+    splash.show()
+    app.processEvents() # Ensure splash screen is displayed
+
+    window = ModBuilderGUI(splash)
     window.show()
+    splash.finish(window)
     sys.exit(app.exec())
