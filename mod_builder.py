@@ -7,10 +7,10 @@ import shutil
 
 try:
     from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel, QLineEdit,
-                                   QPushButton, QFileDialog, QMessageBox, QTreeWidget, QTreeWidgetItem, QTabWidget, QGridLayout,
+                                   QPushButton, QFileDialog, QMessageBox, QTreeWidget, QTreeWidgetItem, QTabWidget, QGridLayout, QSplashScreen,
                                    QScrollArea, QFrame, QMenuBar, QStatusBar, QProgressBar)
     from PySide6.QtCore import Qt, QThread, Signal, QObject, QTimer
-    from PySide6.QtGui import QDesktopServices, QShortcut, QKeySequence, QIcon
+    from PySide6.QtGui import QDesktopServices, QShortcut, QKeySequence, QIcon, QPixmap
     from PySide6.QtCore import QUrl
 except ImportError:
     print("Error: PySide6 module not found. Please install it using 'pip install PySide6'")
@@ -83,7 +83,7 @@ class ModBuilderGUI(QMainWindow):
     # A dedicated, thread-safe signal for updating the status bar
     update_status_bar = Signal(str, int)
 
-    def __init__(self):
+    def __init__(self, splash=None):
         super().__init__()
         self.base_title = f"CrossWorlds Music Mod Builder v{APP_VERSION}"
         self.setWindowTitle("CrossWorlds Music Mod Builder - Select a Category")
@@ -154,8 +154,20 @@ class ModBuilderGUI(QMainWindow):
         self._create_editor_screen(QVBoxLayout(self.editor_screen))
 
         # --- Load settings after UI is created ---
+        app = QApplication.instance()
+        if splash:
+            splash.showMessage("Loading settings...", Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter, Qt.white)
+            if app: app.processEvents()
         self.load_settings()
+
+        if splash:
+            splash.showMessage("Loading session data...", Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter, Qt.white)
+            if app: app.processEvents()
         self.load_session_data()
+
+        if splash:
+            splash.showMessage("Initializing UI...", Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter, Qt.white)
+            if app: app.processEvents()
         self.update_recent_files_menu()
         self.editor_screen.setVisible(False)
 
@@ -174,6 +186,9 @@ class ModBuilderGUI(QMainWindow):
         self.status_bar.addPermanentWidget(version_label)
 
         # Check for updates on startup
+        if splash:
+            splash.showMessage("Checking for updates...", Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter, Qt.white)
+            if app: app.processEvents()
         QTimer.singleShot(1000, self.check_for_updates) # Delay slightly to not block startup
 
         self.update_status_bar.emit("Ready.", 0)
@@ -1339,6 +1354,18 @@ class ModBuilderGUI(QMainWindow):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    window = ModBuilderGUI()
+
+    # Create and show splash screen
+    splash_pix = QPixmap("tools/splash.png")
+    if splash_pix.isNull():
+        # If splash.png is not found, use the app icon as a fallback
+        splash_pix = QPixmap("tools/ico.ico")
+    
+    splash = QSplashScreen(splash_pix, Qt.WindowType.WindowStaysOnTopHint)
+    splash.show()
+    app.processEvents() # Ensure splash screen is displayed
+
+    window = ModBuilderGUI(splash)
     window.show()
+    splash.finish(window)
     sys.exit(app.exec())
