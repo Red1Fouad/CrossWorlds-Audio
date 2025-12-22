@@ -24,6 +24,9 @@ BGM_DATA = {
     "DLC Tracks": {
         "EXTND04": "Minecraft World",
         "EXTND05": "BiKiNi Bottom",
+        "EXTND10": "Miku (Music)",
+        "EXTND11": "Joker (Music)",
+        "EXTND12": "Ichiban Kasuga (Music)",
     },
     "Voice Lines": {
         "SON": "Sonic",
@@ -97,10 +100,54 @@ DLC_MINECRAFT_TRACKS = {
     "Finish Jingle": "00042_streaming",
 }
 
+DLC_MIKU_TRACKS = {
+    "Ceremony Jingle": "00082_streaming",
+    "Character Select": "00083_streaming",
+    "Results Music": "00104_streaming",
+    "Denkoh Sekka": "00084_streaming",
+    "Denkoh Sekka Final Lap": "00086_streaming",
+    "We Are Piko Piko Hammers !!!!": "00088_streaming",
+    "We Are Piko Piko Hammers !!!! Final Lap": "00090_streaming",
+    "Jet Black": "00092_streaming",
+    "Jet Black Final Lap": "00094_streaming",
+    "SAI LOVE JINSEI RUNNER": "00096_streaming",
+    "SAI LOVE JINSEI RUNNER Final Lap": "00097_streaming",
+    "TREASURE GARDEN": "00099_streaming",
+    "TREASURE GARDEN Final Lap": "00101_streaming",
+    "TREASURE GARDEN Opening (Jukebox Only)": "00103_streaming",
+}
+
+DLC_JOKER_TRACKS = {
+    "Wake Up, Get Up, Get Out There": "00023_streaming",
+    "Wake Up, Get Up, Get Out There Final Lap": "00024_streaming",
+    "Take Over": "00025_streaming",
+    "Take Over Final Lap": "00026_streaming",
+    "Character Select": "00022_streaming",
+    "Results Music": "00027_streaming",
+    "Ceremony Jingle": "00021_streaming",
+}
+
+DLC_ICHIBAN_TRACKS = {
+    "Ceremony Jingle": "00019_streaming",
+    "Asphodelos/Character Select Music": "00020_streaming",
+    "Asphodelos Final Lap": "00021_streaming",
+    "Results Music": "00022_streaming",
+}
+
+NON_LOOPABLE_SPECIAL_TRACKS = {
+    "BGM_EXTND10": ["00082_streaming"], # Miku's Ceremony Jingle
+    "BGM_EXTND11": ["00021_streaming"], # Joker's Ceremony Jingle
+    "BGM_EXTND12": ["00019_streaming"], # Ichiban's Ceremony Jingle
+}
+
 # A map to easily get the correct dictionary for a given ACB stem
 SPECIAL_TRACK_MAP = {
     "BGM": MENU_BGM_TRACKS,
     "BGM_EXTND05": DLC_SPONGEBOB_TRACKS,
+    # Guest character music packs
+    "BGM_EXTND10": DLC_MIKU_TRACKS,
+    "BGM_EXTND11": DLC_JOKER_TRACKS,
+    "BGM_EXTND12": DLC_ICHIBAN_TRACKS,
     "SE_EXTND10_CHARA": None, # Will be populated dynamically
     "SE_EXTND11_CHARA": None, # Will be populated dynamically
     "SE_EXTND12_CHARA": None, # Will be populated dynamically

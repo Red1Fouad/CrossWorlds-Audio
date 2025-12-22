@@ -394,6 +394,11 @@ class ModBuilderGUI(QMainWindow):
                 is_guest_char = acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA"]
                 if (tab_name == "Voices" and is_guest_char):
                     continue
+
+                # Exclude character music packs from DLC Stages tab (they are accessed via Misc -> Character)
+                if prefix == "BGM_EXTND" and acb_stem in ["BGM_EXTND10", "BGM_EXTND11", "BGM_EXTND12"]:
+                    continue
+
                 if acb_stem.startswith(prefix):
                     image_path = self._find_image_path(acb_stem, friendly_name, image_folder)
                     card = ImageCard(acb_stem, friendly_name, image_path)
@@ -596,6 +601,27 @@ class ModBuilderGUI(QMainWindow):
 
     def on_card_selected(self, acb_stem, friendly_name):
         """Handles the click event from an ImageCard."""
+        # New logic for misc characters
+        if acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA"]:
+            msg_box = QMessageBox(self)
+            msg_box.setWindowTitle(f"Select Mod Type for {friendly_name}")
+            msg_box.setText(f"Which audio type do you want to modify for {friendly_name}?")
+            music_button = msg_box.addButton("Music", QMessageBox.ButtonRole.ActionRole)
+            sfx_button = msg_box.addButton("SFX", QMessageBox.ButtonRole.ActionRole)
+            cancel_button = msg_box.addButton(QMessageBox.StandardButton.Cancel)
+            
+            msg_box.exec()
+            
+            clicked_button = msg_box.clickedButton()
+            if clicked_button == music_button:
+                # Change the stem from SE_... to BGM_...
+                acb_stem = acb_stem.replace("SE_", "BGM_").replace("_CHARA", "")
+            elif clicked_button == sfx_button:
+                # Keep the original acb_stem
+                pass
+            else: # Cancel was clicked
+                return
+
         filepath = None
 
         # 1. Try to find the file in the selected CriWare folder first.
@@ -829,6 +855,9 @@ class ModBuilderGUI(QMainWindow):
                     can_loop = hca_name in BGM_LOOPABLE_TRACKS
                 else: # Otherwise, it's an original menu track, which should be loopable
                     can_loop = True
+            elif acb_stem in data.NON_LOOPABLE_SPECIAL_TRACKS:
+                if hca_name in data.NON_LOOPABLE_SPECIAL_TRACKS.get(acb_stem, []):
+                    can_loop = False
             editor_widget = TrackEditorWidget(label, show_loop_options=can_loop)
             editor_widget.play_requested.connect(self.on_play_requested)
             editor_widget.autoloop_requested.connect(self.on_autoloop_requested)
@@ -1400,6 +1429,24 @@ class ModBuilderGUI(QMainWindow):
                 final_lap_intro_hca_name = "00025_streaming"
                 if (OUTPUT_DIR / f"{final_lap_hca_name}.hca").exists():
                     replacement_map[f"{final_lap_intro_hca_name}.hca"] = f"{final_lap_hca_name}.hca"
+            
+            # Handle implicit shorts for Miku (BGM_EXTND10)
+            if acb_stem == "BGM_EXTND10":
+                # Map Main -> Short
+                miku_shorts = {
+                    "00084_streaming": "00085_streaming", # Denkoh Sekka
+                    "00086_streaming": "00087_streaming", # Denkoh Sekka FL
+                    "00088_streaming": "00089_streaming", # Piko Piko
+                    "00090_streaming": "00091_streaming", # Piko Piko FL
+                    "00092_streaming": "00093_streaming", # Jet Black
+                    "00094_streaming": "00095_streaming", # Jet Black FL
+                    "00097_streaming": "00098_streaming", # SAI LOVE FL
+                    "00099_streaming": "00100_streaming", # TREASURE GARDEN
+                    "00101_streaming": "00102_streaming", # TREASURE GARDEN FL
+                }
+                for main, short in miku_shorts.items():
+                    if (OUTPUT_DIR / f"{main}.hca").exists():
+                        replacement_map[f"{short}.hca"] = f"{main}.hca"
 
         elif acb_stem in special_structures:
             print(f"Applying special structure for {acb_stem}...")
