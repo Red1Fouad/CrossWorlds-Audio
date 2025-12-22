@@ -51,6 +51,43 @@ ADDITIONAL_TRACK_INDICES = {
     "BGM_STG2016": (4, 5, 6), "BGM_STG2017": (4, 5, 6), "BGM_STG2019": (4, 5, None),
 }
 
+# --- New BGM Tracks ---
+BGM_TRACKS = {
+    "Ceremony Jingle": "00000_streaming",
+    # Team Sonic
+    "Sonic Victory": "00017_streaming", "Tails Victory": "00019_streaming", "Knuckles Victory": "00010_streaming",
+    # Team Rose
+    "Amy Victory": "00001_streaming", "Cream Victory": "00005_streaming", "Big Victory": "00002_streaming",
+    # Team Dark
+    "Shadow Victory": "00015_streaming", "Rouge Victory": "00013_streaming", "E-123 Omega Victory": "00012_streaming",
+    # Team Silver
+    "Silver Victory": "00016_streaming", "Blaze Victory": "00003_streaming",
+    # Team Eggman
+    "Eggman Victory": "00006_streaming", "Metal Sonic Victory": "00011_streaming", "Sage Victory": "00014_streaming", "Eggpawn Victory": "00007_streaming",
+    # Team Chaotix
+    "Vector Victory": "00020_streaming", "Charmy Victory": "00004_streaming", "Espio Victory": "00008_streaming",
+    # Team Babylon
+    "Jet Victory": "00009_streaming", "Wave Victory": "00021_streaming", "Storm Victory": "00018_streaming",
+    # Team Zeti
+    "Zavok Victory": "00022_streaming", "Zazz Victory": "00023_streaming",
+    # Results & Ceremony
+    "Post Ceremony Music": "00024_streaming",
+    "Grand Prix Final Race Results": "00030_streaming",
+    "Race Results 1": "00042_streaming", "Race Results 2": "00043_streaming", "Race Results 3": "00044_streaming", "Race Results 4": "00045_streaming",
+    # Race Finish Jingles
+    "Forces Race Finish": "00060_streaming", "Sonic Adventure Race Finish": "00061_streaming", "Race Finish": "00062_streaming",
+    "Forces Race Finish 2": "00063_streaming", "Sonic Adventure Race Finish 2": "00064_streaming", "Race Finish 2": "00065_streaming",
+    "Forces Race Finish 3": "00066_streaming", "Sonic Adventure Race Finish 3": "00067_streaming", "Race Finish 3": "00068_streaming",
+    "Forces Race Finish 4": "00069_streaming", "Sonic Adventure Race Finish 4": "00070_streaming", "Race Finish 4": "00071_streaming",
+    "White Space Race Finish": "00072_streaming", "White Space Race Finish 2": "00074_streaming", "White Space Race Finish 3": "00075_streaming",
+    "Kronos Island Race Finish": "00076_streaming", "Unleashed Race Finish": "00077_streaming",
+}
+
+BGM_LOOPABLE_TRACKS = [
+    "00024_streaming", "00030_streaming", "00042_streaming", "00043_streaming",
+    "00044_streaming", "00045_streaming",
+]
+
 def find_loop_points_task(file_path_str):
     """
     Task to run in a background thread for finding loop points using the pymusiclooper CLI.
@@ -760,6 +797,9 @@ class ModBuilderGUI(QMainWindow):
             is_voice_acb = True # Treat her like a voice ACB for UI purposes
         elif acb_stem == "BGM_EXTND04": # Minecraft uses its own full dictionary
             track_dict = data.DLC_MINECRAFT_TRACKS
+        elif acb_stem == "BGM":
+            track_dict = data.SPECIAL_TRACK_MAP.get("BGM", {}).copy()
+            track_dict.update(BGM_TRACKS)
         elif acb_stem == "SE_COURSE":
             track_dict = data.SE_COURSE_TRACKS
         elif acb_stem in data.SPECIAL_TRACK_MAP:
@@ -767,9 +807,10 @@ class ModBuilderGUI(QMainWindow):
 
 
         # Add search bar
-        if is_voice_acb: # This now includes Miku
+        if is_voice_acb or acb_stem == "BGM": # This now includes Miku and BGM
             self.voice_search_bar = QLineEdit()
-            self.voice_search_bar.setPlaceholderText("Search Voice Lines... (Ctrl+F)")
+            placeholder = "Search Voice Lines... (Ctrl+F)" if is_voice_acb else "Search Tracks... (Ctrl+F)"
+            self.voice_search_bar.setPlaceholderText(placeholder)
             self.voice_search_bar.textChanged.connect(self._filter_special_lines)
             self.special_track_frame.layout().addWidget(self.voice_search_bar)
 
@@ -781,7 +822,14 @@ class ModBuilderGUI(QMainWindow):
 
         show_loops = not is_voice_acb # No loops for voice lines
         for label, hca_name in track_dict.items():
-            editor_widget = TrackEditorWidget(label, show_loop_options=show_loops)
+            can_loop = show_loops
+            if acb_stem == "BGM":
+                # Check if the track is one of the newly added ones
+                if hca_name in BGM_TRACKS.values():
+                    can_loop = hca_name in BGM_LOOPABLE_TRACKS
+                else: # Otherwise, it's an original menu track, which should be loopable
+                    can_loop = True
+            editor_widget = TrackEditorWidget(label, show_loop_options=can_loop)
             editor_widget.play_requested.connect(self.on_play_requested)
             editor_widget.autoloop_requested.connect(self.on_autoloop_requested)
             editor_widget.cancel_autoloop_requested.connect(self.on_cancel_autoloop)
@@ -1097,7 +1145,7 @@ class ModBuilderGUI(QMainWindow):
         acb_path = Path(filepath)
         acb_stem = acb_path.stem
 
-        if acb_stem.startswith("VOICE_") or acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA"] or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_COURSE":
+        if acb_stem.startswith("VOICE_") or acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA"] or acb_stem == "BGM" or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_COURSE":
             self.special_track_frame.setVisible(True)
             self._populate_special_track_frame(acb_stem)
         else:
@@ -1181,7 +1229,7 @@ class ModBuilderGUI(QMainWindow):
         # --- Prepare list of conversions to run ---
         acb_stem = acb_path.stem
         tasks = [] # hca_name, path, is_looping, start, end
-        if acb_stem.startswith("VOICE_") or acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA"] or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_COURSE":
+        if acb_stem.startswith("VOICE_") or acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA"] or acb_stem == "BGM" or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_COURSE":
             for hca_name, var_dict in self.special_track_vars.items():
                 if var_dict.path_edit.text():
                     is_looping = var_dict.loop_checkbox and var_dict.loop_checkbox.isChecked()
@@ -1314,7 +1362,7 @@ class ModBuilderGUI(QMainWindow):
         replacement_map = {}
 
         acb_stem = Path(self._acb_file).stem
-        is_special_acb_for_onetoone = acb_stem.startswith("VOICE_") or acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA"] or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_COURSE"
+        is_special_acb_for_onetoone = acb_stem.startswith("VOICE_") or acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA"] or acb_stem == "BGM" or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_COURSE"
         is_crossworlds = acb_stem.startswith("BGM_STG2")
 
         # --- Define Special Track Structures ---
