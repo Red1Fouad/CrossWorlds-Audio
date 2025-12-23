@@ -28,7 +28,7 @@ OUTPUT_DIR = Path("output")
 SAMPLES_DIR = TOOLS_DIR / "samples"
 MUSIC_REF_PATH = SAMPLES_DIR / "music.wav"
 VOICE_SFX_REF_PATH = SAMPLES_DIR / "voice.wav"
-APP_VERSION = "1.4"
+APP_VERSION = "1.5"
 SESSION_FILE = Path("session.json")
 GITHUB_REPO = "Red1Fouad/CrossWorlds-Audio"
 
