@@ -6,9 +6,10 @@ try:
     from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel, QLineEdit,
                                    QPushButton, QFileDialog, QMessageBox, QTreeWidget, QTreeWidgetItem, QScrollArea,
                                    QFrame, QMenuBar, QStatusBar, QTabWidget, QGridLayout, QSizePolicy, QDialog,
-                                   QDialogButtonBox, QCheckBox, QSlider, QStyleOptionSlider, QStyle, QProgressBar)
+                                   QDialogButtonBox, QCheckBox, QSlider, QStyleOptionSlider, QStyle, QProgressBar,
+                                   QPlainTextEdit)
     from PySide6.QtCore import Qt, QThread, Signal, QObject, QTimer, QSize, QRect
-    from PySide6.QtGui import QDesktopServices, QShortcut, QKeySequence, QIcon, QPixmap, QPainter, QColor
+    from PySide6.QtGui import QDesktopServices, QShortcut, QKeySequence, QIcon, QPixmap, QPainter, QColor, QTextCursor, QFont
     try:
         from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
         MULTIMEDIA_AVAILABLE = True
@@ -173,6 +174,7 @@ class TrackEditorWidget(QFrame):
     normalize_requested = Signal(str) # Signal that this widget wants to normalize audio
     autoloop_requested = Signal(object, str) # Signal with self and path
     cancel_autoloop_requested = Signal(object) # Signal with self
+    play_original_requested = Signal(object) # Signal with self
 
     def __init__(self, label_text, show_loop_options=True, parent=None):
         super().__init__(parent)
@@ -218,18 +220,26 @@ class TrackEditorWidget(QFrame):
         self.loop_preview_button.setEnabled(False)
         self.loop_preview_button.setVisible(show_loop_options)
 
+        self.play_original_button = QPushButton("Orig")
+        self.play_original_button.setFixedSize(40, 22)
+        self.play_original_button.setToolTip("Preview Original Audio")
+        self.play_original_button.setEnabled(False)
+
         if MULTIMEDIA_AVAILABLE:
             self.play_button.clicked.connect(self.toggle_playback)
             self.loop_preview_button.clicked.connect(self.toggle_loop_preview)
+            self.play_original_button.clicked.connect(self.toggle_original_preview)
         else:
             self.play_button.setVisible(False)
             self.loop_preview_button.setVisible(False)
+            self.play_original_button.setVisible(False)
         self.title_label = QLabel(f"<b>{label_text}</b>")
         self.status_label = QLabel("<i>No file selected</i>")
         self.status_label.setObjectName("StatusLabel")
 
         header_layout.addWidget(self.play_button)
         header_layout.addWidget(self.loop_preview_button)
+        header_layout.addWidget(self.play_original_button)
         header_layout.addWidget(self.title_label)
         header_layout.addStretch()
         header_layout.addWidget(self.status_label)
@@ -531,6 +541,28 @@ class TrackEditorWidget(QFrame):
                 self.player.setSource(QUrl.fromLocalFile(filepath))
                 self.player.play()
 
+    def toggle_original_preview(self):
+        if not self.player: return
+
+        if self.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState and self.playback_mode == 'original':
+            self.stop_playback()
+        else:
+            self.play_original_requested.emit(self)
+            # The actual playback will be initiated by the main window calling play_original_file
+
+    def play_original_file(self, filepath):
+        """Plays the converted original file."""
+        if not self.player: return
+        
+        # Stop any current playback
+        if self.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
+            self.player.stop()
+            
+        self.playback_mode = 'original'
+        self._manual_stop = False
+        self.player.setSource(QUrl.fromLocalFile(filepath))
+        self.player.play()
+
     def toggle_loop_preview(self):
         if not self.player: return
 
@@ -589,11 +621,18 @@ class TrackEditorWidget(QFrame):
                 self.loop_preview_button.setText("■")
                 self.loop_preview_button.setToolTip("Stop Preview")
                 self.play_button.setEnabled(False)
+                self.play_original_button.setEnabled(False)
+            elif self.playback_mode == 'original':
+                self.play_original_button.setText("■")
+                self.play_original_button.setToolTip("Stop Preview")
+                self.play_button.setEnabled(False)
+                if self.loop_preview_button: self.loop_preview_button.setEnabled(False)
             else: # normal playback
                 self.play_button.setText("■")
                 self.play_button.setToolTip("Stop Preview")
                 if self.loop_preview_button:
                     self.loop_preview_button.setEnabled(False)
+                self.play_original_button.setEnabled(False)
         else: # Stopped or Paused
             # Check if we hit the end of the file while in loop mode
             if self.playback_mode == 'loop' and not self._manual_stop:
@@ -614,6 +653,10 @@ class TrackEditorWidget(QFrame):
                 self.loop_preview_button.setText("Loop")
                 self.loop_preview_button.setToolTip("Preview Loop Points")
                 self.loop_preview_button.setEnabled(True)
+            
+            self.play_original_button.setText("Orig")
+            self.play_original_button.setToolTip("Preview Original Audio")
+            self.play_original_button.setEnabled(True)
             self.playback_mode = None # Reset mode on stop
 
     def _check_loop(self):
@@ -668,6 +711,22 @@ class TrackEditorWidget(QFrame):
         """Emits the normalize_requested signal with the current file path."""
         self.normalize_requested.emit(self.path_edit.text())
 
+class LogWindow(QMainWindow):
+    """A secondary window for real-time logging."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Debug Log")
+        self.resize(800, 600)
+        
+        self.text_edit = QPlainTextEdit()
+        self.text_edit.setReadOnly(True)
+        self.setCentralWidget(self.text_edit)
+
+    def append_text(self, text):
+        self.text_edit.moveCursor(QTextCursor.MoveOperation.End)
+        self.text_edit.insertPlainText(text)
+        self.text_edit.moveCursor(QTextCursor.MoveOperation.End)
+
 class SettingsDialog(QDialog):
     """A dialog for application settings."""
     def __init__(self, parent=None):
@@ -677,6 +736,7 @@ class SettingsDialog(QDialog):
 
         self.main_window = parent
         self._criware_path = self.main_window.criware_folder_path # Store path during dialog session
+        self._debug_enabled = getattr(self.main_window, 'debug_logging_enabled', False)
 
         layout = QVBoxLayout(self)
 
@@ -700,6 +760,16 @@ class SettingsDialog(QDialog):
         button_layout.addWidget(clear_button)
         group_layout.addLayout(button_layout)
 
+        # --- Debug Settings ---
+        debug_group = QGroupBox("Debug Settings")
+        debug_layout = QVBoxLayout(debug_group)
+        layout.addWidget(debug_group)
+
+        self.debug_checkbox = QCheckBox("Show Debug Log Window")
+        self.debug_checkbox.setChecked(self._debug_enabled)
+        self.debug_checkbox.toggled.connect(self._toggle_debug)
+        debug_layout.addWidget(self.debug_checkbox)
+
         # --- Dialog Buttons (OK/Cancel) ---
         button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         button_box.accepted.connect(self.accept)
@@ -711,6 +781,9 @@ class SettingsDialog(QDialog):
             self.path_label.setText(f"<b>Current Path:</b> {self._criware_path}")
         else:
             self.path_label.setText("<i>No folder selected. The app will ask for each .acb file individually.</i>")
+
+    def _toggle_debug(self, checked):
+        self._debug_enabled = checked
 
     def select_folder(self):
         folder_path = QFileDialog.getExistingDirectory(self, "Select CriWare Folder")

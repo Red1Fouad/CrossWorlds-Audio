@@ -4,6 +4,8 @@ import json, configparser
 import time
 from pathlib import Path
 import shutil
+import subprocess
+import wave
 
 try:
     from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel, QLineEdit,
@@ -17,7 +19,7 @@ except ImportError:
     sys.exit(1)
 
 import data
-from ui_components import BGMSelectorWindow, ImageCard, TrackEditorWidget, SettingsDialog
+from ui_components import BGMSelectorWindow, ImageCard, TrackEditorWidget, SettingsDialog, LogWindow
 from volume_logic import normalize_audio_file
 from mod_logic import ModLogic
 
@@ -143,6 +145,27 @@ class Worker(QObject):
         except Exception as e:
             self.error.emit(e)
 
+class StreamRedirector(QObject):
+    """Redirects stream output to a signal."""
+    text_written = Signal(str)
+    def __init__(self, stream=None):
+        super().__init__()
+        self._stream = stream
+    
+    def write(self, text):
+        if self._stream:
+            try:
+                self._stream.write(text)
+                self._stream.flush()
+            except Exception: pass
+        self.text_written.emit(str(text))
+        
+    def flush(self):
+        if self._stream:
+            try:
+                self._stream.flush()
+            except Exception: pass
+
 class ModBuilderGUI(QMainWindow):
     # A dedicated, thread-safe signal for updating the status bar
     update_status_bar = Signal(str, int)
@@ -191,6 +214,7 @@ class ModBuilderGUI(QMainWindow):
         self.original_files = []
         self._acb_path_cache = {} # Cache for selected ACB paths per session
         self.criware_folder_path = None
+        self.debug_logging_enabled = False
 
         # --- New state vars for direct file selection ---
         self.intro_track_vars = {}
@@ -682,6 +706,10 @@ class ModBuilderGUI(QMainWindow):
                 self.criware_folder_path = Path(path_str)
                 print(f"Loaded CriWare folder path: {self.criware_folder_path}")
             
+            self.debug_logging_enabled = self.config['Settings'].getboolean('debug_logging', False)
+            if self.debug_logging_enabled:
+                self._show_log_window()
+            
             recent_files_str = self.config['Settings'].get('recent_files', '')
             if recent_files_str:
                 # Filter out any empty strings that might result from splitting
@@ -694,6 +722,7 @@ class ModBuilderGUI(QMainWindow):
             self.config.add_section('Settings')
         path_str = str(self.criware_folder_path) if self.criware_folder_path else ""
         self.config['Settings']['criware_folder'] = path_str
+        self.config['Settings']['debug_logging'] = str(self.debug_logging_enabled)
 
         # Limit to max and save
         self.config['Settings']['recent_files'] = ",".join(self.recent_files[:self.MAX_RECENT_FILES])
@@ -727,6 +756,13 @@ class ModBuilderGUI(QMainWindow):
 
     def check_tools(self):
         missing_tools = self.logic.check_tools()
+        if missing_tools is None:
+            missing_tools = []
+
+        # Check for ffmpeg (Required for the new sanitization fix)
+        if not (TOOLS_DIR / "ffmpeg.exe").exists() and not shutil.which("ffmpeg"):
+            missing_tools.append("ffmpeg.exe")
+
         if missing_tools:
             QMessageBox.critical(self, "Tools Missing", f"The following tools were not found:\n\n" + "\n".join(missing_tools) + "\n\nPlease ensure the 'tools' folder is correctly set up next to the script.")
             self.close()
@@ -1252,6 +1288,37 @@ class ModBuilderGUI(QMainWindow):
         self.pak_button.setEnabled(True)
         self.populate_orig_listbox()
 
+    def sanitize_wav(self, input_path_str):
+        """
+        Ensures all audio files are a standard 16-bit PCM WAV by running them through ffmpeg.
+        This fixes issues with files from external tools (like amplifier scripts)
+        that output 32-bit Float WAVs, and guarantees compatibility with the modding tools.
+        """
+        input_path = Path(input_path_str)
+
+        # Always run files through ffmpeg to guarantee a standard 16-bit PCM WAV format.
+        self.update_status_bar.emit(f"Sanitizing '{input_path.name}' to 16-bit PCM...", 0)
+        if QApplication.instance():
+            QApplication.instance().processEvents()
+        
+        output_path = input_path.with_name(f"{input_path.stem}_16bit.wav")
+        
+        ffmpeg_cmd = "ffmpeg"
+        tools_ffmpeg = TOOLS_DIR / "ffmpeg.exe"
+        if tools_ffmpeg.exists():
+            ffmpeg_cmd = str(tools_ffmpeg)
+        
+        cmd = [ffmpeg_cmd, "-y", "-i", str(input_path), "-c:a", "pcm_s16le", str(output_path)]
+        
+        try:
+            cflags = 0x08000000 if sys.platform == "win32" else 0
+            subprocess.run(cmd, check=True, capture_output=True, creationflags=cflags)
+            print(f"Sanitized: {input_path.name} -> {output_path.name}")
+            return str(output_path)
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            print(f"Failed to sanitize '{input_path.name}'. Ensure ffmpeg is installed.")
+            return input_path_str
+
     def convert_audio(self):
         """New fully automated conversion process."""
         acb_path = Path(self._acb_file)
@@ -1302,6 +1369,13 @@ class ModBuilderGUI(QMainWindow):
                         return
                 except ValueError:
                     pass # Commas are already handled, this will catch other non-integer values
+
+        # Sanitize WAV files (fix for 32-bit float / incompatible WAVs)
+        sanitized_tasks = []
+        for name, wav_path_str, is_looping, start, end in tasks:
+            safe_path = self.sanitize_wav(wav_path_str)
+            sanitized_tasks.append((name, safe_path, is_looping, start, end))
+        tasks = sanitized_tasks
 
         print("The following files will be converted:")
         for name, wav_path_str, _, _, _ in tasks:
@@ -1642,8 +1716,47 @@ class ModBuilderGUI(QMainWindow):
         if dialog.exec(): # This is a blocking call
             # OK was clicked, update the path in the main window
             self.criware_folder_path = dialog._criware_path
+            
+            old_debug = self.debug_logging_enabled
+            self.debug_logging_enabled = dialog._debug_enabled
+            
+            if self.debug_logging_enabled and not old_debug:
+                self._show_log_window()
+            elif not self.debug_logging_enabled and old_debug:
+                self._hide_log_window()
+            
             self.save_settings() # Save immediately on change
             print(f"CriWare folder path updated to: {self.criware_folder_path}")
+
+    def _setup_log_redirection(self):
+        if hasattr(self, '_redirectors_setup') and self._redirectors_setup:
+            return
+
+        self.log_window = LogWindow()
+        
+        self._original_stdout = sys.stdout
+        self._original_stderr = sys.stderr
+        
+        self.stdout_redirector = StreamRedirector(self._original_stdout)
+        self.stderr_redirector = StreamRedirector(self._original_stderr)
+        
+        self.stdout_redirector.text_written.connect(self.log_window.append_text)
+        self.stderr_redirector.text_written.connect(self.log_window.append_text)
+        
+        sys.stdout = self.stdout_redirector
+        sys.stderr = self.stderr_redirector
+        
+        self._redirectors_setup = True
+
+    def _show_log_window(self):
+        self._setup_log_redirection()
+        self.log_window.show()
+        self.debug_logging_enabled = True
+
+    def _hide_log_window(self):
+        if hasattr(self, 'log_window') and self.log_window:
+            self.log_window.hide()
+        self.debug_logging_enabled = False
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
