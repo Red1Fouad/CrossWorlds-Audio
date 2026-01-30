@@ -49,7 +49,7 @@ class ModLogic:
                     shell = False
 
             if not shell:
-                creation_flags = 0
+                creation_flags = 0x08000000 if sys.platform == "win32" else 0 # CREATE_NO_WINDOW
                 subprocess.run(command, check=True, cwd=cwd, creationflags=creation_flags)
                 return "Process completed."
             else:
@@ -84,12 +84,14 @@ class ModLogic:
         
         return command_line
 
-    def _run_conversion_tasks(self, tasks, base_command_line, cwd):
+    def _run_conversion_tasks(self, tasks, base_command_line, cwd, progress_callback=None):
         """The actual conversion logic that runs in a thread."""
         temp_input_dir = Path(cwd) / "input"
         temp_output_dir = Path(cwd) / "output"
+        total_tasks = len(tasks)
 
-        for name, wav_path_str, has_loop, loop_start, loop_end in tasks:
+        for i, (name, wav_path_str, has_loop, loop_start, loop_end, gain_db) in enumerate(tasks):
+            if progress_callback: progress_callback(i, total_tasks, f"Converting {name}...")
             wav_path = Path(wav_path_str)
             print(f"Converting '{wav_path.name}' for {name}...")
 
@@ -97,16 +99,21 @@ class ModLogic:
             if temp_output_dir.exists(): shutil.rmtree(temp_output_dir)
             os.makedirs(temp_input_dir)
             os.makedirs(temp_output_dir)
+            
+            temp_wav_path = temp_input_dir / Path(name).with_suffix('.wav').name
 
-            # If the input is not a WAV file, convert it to a temporary WAV using ffmpeg.
-            # Otherwise, just copy it.
-            if wav_path.suffix.lower() != '.wav':
-                print(f"  - '{wav_path.name}' is not a WAV file. Converting with ffmpeg...")
-                temp_wav_path = temp_input_dir / wav_path.with_suffix('.wav').name
-                ffmpeg_cmd = [str(self.FFMPEG), '-i', str(wav_path), str(temp_wav_path)]
-                subprocess.run(ffmpeg_cmd, check=True, capture_output=True) # Capture output to hide ffmpeg info
+            # If the input is not a WAV file OR if we need to apply gain, use ffmpeg.
+            needs_ffmpeg = wav_path.suffix.lower() != '.wav' or gain_db != 0.0
+
+            if needs_ffmpeg:
+                print(f"  - Processing '{wav_path.name}' with ffmpeg (Gain: {gain_db}dB)...")
+                ffmpeg_cmd = [str(self.FFMPEG), '-y', '-i', str(wav_path)]
+                if gain_db != 0.0:
+                    ffmpeg_cmd.extend(['-filter:a', f'volume={gain_db}dB'])
+                ffmpeg_cmd.append(str(temp_wav_path))
+                # Use creationflags to hide window
+                subprocess.run(ffmpeg_cmd, check=True, capture_output=True, creationflags=0x08000000 if sys.platform == "win32" else 0)
             else:
-                temp_wav_path = temp_input_dir / Path(name).with_suffix('.wav').name
                 shutil.copy2(wav_path, temp_wav_path)
 
             command_parts = shlex.split(base_command_line)
@@ -124,7 +131,8 @@ class ModLogic:
                 command_parts = ["wine"] + command_parts
 
             print(f"  - Command: {' '.join(shlex.quote(p) for p in command_parts)}")
-            subprocess.run(command_parts, check=True, cwd=cwd)
+            # Use creationflags to hide window
+            subprocess.run(command_parts, check=True, cwd=cwd, creationflags=0x08000000 if sys.platform == "win32" else 0)
 
             converted_files = list(temp_output_dir.glob('*'))
             if converted_files:
@@ -133,14 +141,14 @@ class ModLogic:
         if temp_input_dir.exists(): shutil.rmtree(temp_input_dir)
         if temp_output_dir.exists(): shutil.rmtree(temp_output_dir)
 
-    def convert_audio(self, acb_path, tasks):
+    def convert_audio(self, acb_path, tasks, progress_callback=None):
         acb_name = Path(acb_path).stem
         
         if self.OUTPUT_DIR.exists():
             shutil.rmtree(self.OUTPUT_DIR)
         os.makedirs(self.OUTPUT_DIR)
         command_line = self._get_vgaudiocli_command(acb_name)
-        self._run_conversion_tasks(tasks, command_line, str(self.TOOLS_DIR))
+        self._run_conversion_tasks(tasks, command_line, str(self.TOOLS_DIR), progress_callback)
 
     def repack_acb(self, unpacked_path):
         self._execute_command([str(self.ACB_EDITOR), str(unpacked_path)], False, cwd=None)

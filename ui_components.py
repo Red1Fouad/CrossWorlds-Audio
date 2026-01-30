@@ -1,13 +1,15 @@
 import sys
 import struct
+import subprocess
+import re
 from pathlib import Path
 
 try:
     from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel, QLineEdit,
                                    QPushButton, QFileDialog, QMessageBox, QTreeWidget, QTreeWidgetItem, QScrollArea,
                                    QFrame, QMenuBar, QStatusBar, QTabWidget, QGridLayout, QSizePolicy, QDialog,
-                                   QDialogButtonBox, QCheckBox, QSlider, QStyleOptionSlider, QStyle, QProgressBar,
-                                   QPlainTextEdit)
+                                   QDialogButtonBox, QCheckBox, QSlider, QStyleOptionSlider, QStyle, QProgressBar, QDoubleSpinBox,
+                                   QPlainTextEdit, QMenu)
     from PySide6.QtCore import Qt, QThread, Signal, QObject, QTimer, QSize, QRect
     from PySide6.QtGui import QDesktopServices, QShortcut, QKeySequence, QIcon, QPixmap, QPainter, QColor, QTextCursor, QFont
     try:
@@ -175,6 +177,7 @@ class TrackEditorWidget(QFrame):
     autoloop_requested = Signal(object, str) # Signal with self and path
     cancel_autoloop_requested = Signal(object) # Signal with self
     play_original_requested = Signal(object) # Signal with self
+    apply_to_all_requested = Signal(object, str) # Signal with self and mode ('file', 'gain', 'all')
 
     def __init__(self, label_text, show_loop_options=True, parent=None):
         super().__init__(parent)
@@ -187,6 +190,7 @@ class TrackEditorWidget(QFrame):
         self.loop_checkbox = None
         self.loop_start_edit = None
         self.loop_end_edit = None
+        self.gain_spinbox = None
         self._last_filepath = None # To prevent re-scanning the same file
         self._sample_rate = 0 # For loop point conversion
         self.playback_mode = None # 'normal' or 'loop'
@@ -273,6 +277,7 @@ class TrackEditorWidget(QFrame):
         if MULTIMEDIA_AVAILABLE:
             self.playback_slider.valueChanged.connect(self.set_position)
             self.volume_slider.valueChanged.connect(self.set_volume)
+            self.volume_slider.valueChanged.connect(self._update_playback_volume) # Also update for gain changes
             playback_layout.addWidget(self.playback_slider)
             playback_layout.addWidget(self.time_label)
             playback_layout.addWidget(self.volume_slider)
@@ -313,6 +318,14 @@ class TrackEditorWidget(QFrame):
         self.autoloop_button.setToolTip("Automatically finds the best loop points for this audio file.\nRequires 'pymusiclooper' to be installed.")
         self.autoloop_button.clicked.connect(self.emit_autoloop_request)
 
+        self.gain_spinbox = QDoubleSpinBox()
+        self.gain_spinbox.setRange(-100.0, 100.0)
+        self.gain_spinbox.setSuffix(" dB")
+        self.gain_spinbox.setToolTip("Volume Adjustment (dB). Applied during conversion.")
+        self.gain_spinbox.setValue(0.0)
+        self.gain_spinbox.setFixedWidth(80)
+        self.gain_spinbox.valueChanged.connect(self._update_playback_volume)
+
         self.cancel_autoloop_button = QPushButton("Cancel")
         self.cancel_autoloop_button.setToolTip("Cancel Auto-Loop Analysis")
         self.cancel_autoloop_button.clicked.connect(lambda: self.cancel_autoloop_requested.emit(self))
@@ -322,6 +335,7 @@ class TrackEditorWidget(QFrame):
         browse_button.clicked.connect(self._browse_for_file)
         browse_layout.addWidget(self.path_edit)
         browse_layout.addWidget(clear_button)
+        browse_layout.addWidget(self.gain_spinbox)
         browse_layout.addWidget(self.normalize_button)
         browse_layout.addWidget(self.autoloop_button)
         browse_layout.addWidget(self.cancel_autoloop_button)
@@ -358,6 +372,10 @@ class TrackEditorWidget(QFrame):
         self.autoloop_progress.setTextVisible(False)
         content_layout.addWidget(self.autoloop_progress)
 
+        # --- Context Menu ---
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(self._show_context_menu)
+
         # --- Styling & Connections ---
         self.content_frame.setVisible(True) # Always visible
 
@@ -365,6 +383,24 @@ class TrackEditorWidget(QFrame):
             self._init_player()
 
         self._update_status()
+
+    def _show_context_menu(self, pos):
+        """Shows a context menu for batch operations."""
+        menu = QMenu(self)
+        
+        action_file = menu.addAction("Apply this file to all visible tracks")
+        action_gain = menu.addAction("Apply this volume (dB) to all visible tracks")
+        menu.addSeparator()
+        action_all = menu.addAction("Apply file & settings to all visible tracks")
+        
+        action = menu.exec(self.mapToGlobal(pos))
+        
+        if action == action_file:
+            self.apply_to_all_requested.emit(self, 'file')
+        elif action == action_gain:
+            self.apply_to_all_requested.emit(self, 'gain')
+        elif action == action_all:
+            self.apply_to_all_requested.emit(self, 'all')
 
     def _format_time(self, ms):
         """Formats milliseconds into MM:SS."""
@@ -427,6 +463,50 @@ class TrackEditorWidget(QFrame):
         except Exception as e:
             print(f"Could not read loop points: {e}")
 
+    def _get_sample_rate(self, filepath):
+        """Gets sample rate efficiently using wave, ffmpeg, or pydub."""
+        path = Path(filepath)
+        if not path.exists():
+            return 0
+            
+        # 1. Fast path for WAV
+        if path.suffix.lower() == '.wav':
+            try:
+                import wave
+                with wave.open(str(path), 'rb') as wf:
+                    return wf.getframerate()
+            except Exception:
+                pass
+
+        # 2. Try ffmpeg probe (Fast)
+        ffmpeg_path = "ffmpeg"
+        if sys.platform == "win32":
+            local_ffmpeg = Path("tools/ffmpeg.exe")
+            if local_ffmpeg.exists():
+                ffmpeg_path = str(local_ffmpeg)
+        else:
+            local_ffmpeg = Path("tools/ffmpeg")
+            if local_ffmpeg.exists():
+                ffmpeg_path = str(local_ffmpeg)
+
+        try:
+            cmd = [ffmpeg_path, "-i", str(path), "-hide_banner"]
+            creation_flags = 0x08000000 if sys.platform == "win32" else 0
+            result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace', creationflags=creation_flags)
+            match = re.search(r'(\d+)\s*Hz', result.stderr)
+            if match:
+                return int(match.group(1))
+        except Exception:
+            pass
+
+        # 3. Fallback to pydub (Slow)
+        try:
+            from pydub import AudioSegment
+            audio = AudioSegment.from_file(str(path))
+            return audio.frame_rate
+        except Exception:
+            return 0
+
     def _update_status(self):
         filepath = self.path_edit.text()
         if filepath:
@@ -472,13 +552,7 @@ class TrackEditorWidget(QFrame):
             
             # Get sample rate for loop conversion
             if MULTIMEDIA_AVAILABLE:
-                try:
-                    from pydub import AudioSegment
-                    audio = AudioSegment.from_file(filepath)
-                    self._sample_rate = audio.frame_rate
-                except Exception as e:
-                    print(f"Could not get sample rate for {filepath}: {e}")
-                    self._sample_rate = 0
+                self._sample_rate = self._get_sample_rate(filepath)
 
             if self.loop_checkbox and Path(filepath).suffix.lower() == '.wav':
                 self._try_load_loop_points(filepath)
@@ -522,7 +596,7 @@ class TrackEditorWidget(QFrame):
         self.player.durationChanged.connect(self.duration_changed)
 
         # Set initial volume
-        self.audio_output.setVolume(self.volume_slider.value() / 100.0)
+        self._update_playback_volume()
         
         self.loop_timer = QTimer(self)
         self.loop_timer.setInterval(10) # High frequency check for smoother looping
@@ -707,6 +781,17 @@ class TrackEditorWidget(QFrame):
         if self.audio_output:
             self.audio_output.setVolume(volume / 100.0)
 
+    def _update_playback_volume(self):
+        """Updates the audio output volume based on slider and dB gain."""
+        if not self.audio_output: return
+        
+        slider_vol = self.volume_slider.value() / 100.0
+        gain_db = self.gain_spinbox.value()
+        
+        # Calculate effective volume: vol * 10^(dB/20)
+        effective_vol = slider_vol * (10 ** (gain_db / 20.0))
+        self.audio_output.setVolume(min(1.0, max(0.0, effective_vol)))
+
     def emit_normalize_request(self):
         """Emits the normalize_requested signal with the current file path."""
         self.normalize_requested.emit(self.path_edit.text())
@@ -726,6 +811,29 @@ class LogWindow(QMainWindow):
         self.text_edit.moveCursor(QTextCursor.MoveOperation.End)
         self.text_edit.insertPlainText(text)
         self.text_edit.moveCursor(QTextCursor.MoveOperation.End)
+
+class ProgressLogDialog(QDialog):
+    """A dialog showing a progress bar and a log text area."""
+    def __init__(self, title, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(title)
+        self.resize(600, 400)
+        self.layout = QVBoxLayout(self)
+        
+        self.progress_bar = QProgressBar()
+        self.layout.addWidget(self.progress_bar)
+        
+        self.log_text = QPlainTextEdit()
+        self.log_text.setReadOnly(True)
+        self.layout.addWidget(self.log_text)
+        
+        # We don't add buttons because this dialog is controlled by the worker
+
+    def update_progress(self, current, total, message):
+        self.progress_bar.setMaximum(total)
+        self.progress_bar.setValue(current)
+        if message:
+            self.log_text.appendPlainText(message)
 
 class SettingsDialog(QDialog):
     """A dialog for application settings."""

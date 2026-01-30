@@ -10,7 +10,7 @@ import wave
 try:
     from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel, QLineEdit,
                                    QPushButton, QFileDialog, QMessageBox, QTreeWidget, QTreeWidgetItem, QTabWidget, QGridLayout, QSplashScreen,
-                                   QScrollArea, QFrame, QMenuBar, QStatusBar, QProgressBar)
+                                   QScrollArea, QFrame, QMenuBar, QStatusBar, QProgressBar, QDoubleSpinBox)
     from PySide6.QtCore import Qt, QThread, Signal, QObject, QTimer
     from PySide6.QtGui import QDesktopServices, QShortcut, QKeySequence, QIcon, QPixmap
     from PySide6.QtCore import QUrl
@@ -19,7 +19,7 @@ except ImportError:
     sys.exit(1)
 
 import data
-from ui_components import BGMSelectorWindow, ImageCard, TrackEditorWidget, SettingsDialog, LogWindow
+from ui_components import BGMSelectorWindow, ImageCard, TrackEditorWidget, SettingsDialog, LogWindow, ProgressLogDialog
 from volume_logic import normalize_audio_file
 from mod_logic import ModLogic
 
@@ -169,6 +169,7 @@ class StreamRedirector(QObject):
 class ModBuilderGUI(QMainWindow):
     # A dedicated, thread-safe signal for updating the status bar
     update_status_bar = Signal(str, int)
+    update_conversion_progress = Signal(int, int, str)
 
     def __init__(self, splash=None):
         super().__init__()
@@ -182,6 +183,7 @@ class ModBuilderGUI(QMainWindow):
         self.active_threads = [] # Keep references to active threads
         self.autoloop_threads = {} # Map widgets to their specific threads for cancellation
 
+        self.progress_dialog = None
         self.config = configparser.ConfigParser()
         self.settings_file = Path("settings.ini")
         self._track_file_cache = {}
@@ -523,6 +525,29 @@ class ModBuilderGUI(QMainWindow):
         self.unpack_first_label.setWordWrap(True)
         convert_outer_layout.addWidget(self.unpack_first_label)
 
+        # --- Master Gain Control ---
+        self.master_gain_widget = QWidget()
+        master_gain_layout = QHBoxLayout(self.master_gain_widget)
+        master_gain_layout.setContentsMargins(0, 0, 0, 5)
+        
+        master_gain_layout.addWidget(QLabel("Master Gain (dB):"))
+        self.master_gain_spinbox = QDoubleSpinBox()
+        self.master_gain_spinbox.setRange(-100.0, 100.0)
+        self.master_gain_spinbox.setSuffix(" dB")
+        self.master_gain_spinbox.setToolTip("Set volume gain for all visible tracks.")
+        self.master_gain_spinbox.setValue(0.0)
+        self.master_gain_spinbox.setFixedWidth(80)
+        master_gain_layout.addWidget(self.master_gain_spinbox)
+        
+        apply_master_gain_btn = QPushButton("Apply to All")
+        apply_master_gain_btn.setToolTip("Apply this gain value to all visible tracks below.")
+        apply_master_gain_btn.clicked.connect(self.apply_master_gain)
+        master_gain_layout.addWidget(apply_master_gain_btn)
+        
+        master_gain_layout.addStretch()
+        self.master_gain_widget.setVisible(False)
+        convert_outer_layout.addWidget(self.master_gain_widget)
+
         # Create a scroll area
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
@@ -590,7 +615,10 @@ class ModBuilderGUI(QMainWindow):
         self.announce_track_vars.normalize_requested.connect(lambda path: self._update_path_after_normalize(self.announce_track_vars, path, 'music'))
         stage_layout.addWidget(self.announce_track_vars)
 
-        self.all_track_editors.extend([self.intro_track_vars, self.lap1_track_vars, self.final_lap_track_vars, self.transition_track_vars, self.transition_short_track_vars, self.announce_track_vars])
+        stage_editors = [self.intro_track_vars, self.lap1_track_vars, self.final_lap_track_vars, self.transition_track_vars, self.transition_short_track_vars, self.announce_track_vars]
+        for editor in stage_editors:
+            editor.apply_to_all_requested.connect(self.on_apply_to_all_requested)
+        self.all_track_editors.extend(stage_editors)
         # --- New Menu Music Frame ---
         # This single frame will be used for Menu, Voice, and DLC tracks
         self.special_track_frame = QWidget()
@@ -617,6 +645,15 @@ class ModBuilderGUI(QMainWindow):
         convert_btn_layout.addWidget(self.convert_button)
         
         convert_outer_layout.addLayout(convert_btn_layout)
+
+    def apply_master_gain(self):
+        gain = self.master_gain_spinbox.value()
+        count = 0
+        for editor in self.all_track_editors:
+            if editor.isVisible() and editor.gain_spinbox:
+                editor.gain_spinbox.setValue(gain)
+                count += 1
+        self.update_status_bar.emit(f"Applied {gain} dB to {count} tracks.", 3000)
 
     def copy_transition_settings(self):
         self.transition_short_track_vars.path_edit.setText(self.transition_track_vars.path_edit.text())
@@ -905,7 +942,8 @@ class ModBuilderGUI(QMainWindow):
             editor_widget.play_requested.connect(self.on_play_requested)
             editor_widget.autoloop_requested.connect(self.on_autoloop_requested)
             editor_widget.cancel_autoloop_requested.connect(self.on_cancel_autoloop)
-            editor_widget.normalize_requested.connect(lambda path, track_type='sfx' if acb_stem.startswith("SE_") else 'voice': self.on_normalize_requested(path, track_type))
+            editor_widget.normalize_requested.connect(lambda path, ew=editor_widget, track_type='sfx' if acb_stem.startswith("SE_") else 'voice': self._update_path_after_normalize(ew, path, track_type))
+            editor_widget.apply_to_all_requested.connect(self.on_apply_to_all_requested)
             self.special_track_vars[hca_name] = editor_widget
             self.all_track_editors.append(editor_widget)
             self.special_track_frame.layout().addWidget(editor_widget)
@@ -956,6 +994,8 @@ class ModBuilderGUI(QMainWindow):
     def on_command_error(self, error):
         self.update_status_bar.emit("Error! Check console for details.", 0)
         QMessageBox.critical(self, "Execution Error", str(error))
+        if self.progress_dialog:
+            self.progress_dialog.close()
         self.reset_ui_state()
 
     def reset_ui_state(self):
@@ -977,6 +1017,43 @@ class ModBuilderGUI(QMainWindow):
         for editor in self.all_track_editors:
             if editor is not requesting_widget:
                 editor.stop_playback()
+
+    def on_apply_to_all_requested(self, source_widget, mode):
+        """Applies settings from one track to all other visible tracks."""
+        # Count targets (only visible ones)
+        targets = [t for t in self.all_track_editors if t is not source_widget and t.isVisible()]
+        if not targets:
+            QMessageBox.information(self, "No Targets", "No other visible tracks to apply settings to.")
+            return
+
+        mode_desc = "file"
+        if mode == 'gain': mode_desc = "volume"
+        elif mode == 'all': mode_desc = "file and settings"
+
+        reply = QMessageBox.question(self, "Apply to All", 
+                                     f"Are you sure you want to apply the {mode_desc} from '{source_widget.original_label_text}' to all {len(targets)} other visible tracks?",
+                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        for target in targets:
+            if mode in ['file', 'all']:
+                target.path_edit.setText(source_widget.path_edit.text())
+            
+            if mode in ['gain', 'all']:
+                if target.gain_spinbox and source_widget.gain_spinbox:
+                    target.gain_spinbox.setValue(source_widget.gain_spinbox.value())
+            
+            if mode == 'all':
+                if target.loop_checkbox and source_widget.loop_checkbox:
+                    target.loop_checkbox.setChecked(source_widget.loop_checkbox.isChecked())
+                if target.loop_start_edit and source_widget.loop_start_edit:
+                    target.loop_start_edit.setText(source_widget.loop_start_edit.text())
+                if target.loop_end_edit and source_widget.loop_end_edit:
+                    target.loop_end_edit.setText(source_widget.loop_end_edit.text())
+        
+        self.update_status_bar.emit(f"Applied {mode_desc} to {len(targets)} tracks.", 3000)
 
     def on_normalize_requested(self, source_path_str, track_type):
         """Handles the normalization request from a TrackEditorWidget."""
@@ -1200,6 +1277,7 @@ class ModBuilderGUI(QMainWindow):
         self.stage_music_frame.setVisible(False)
         self.special_track_frame.setVisible(False)
         self.scroll_area.setVisible(False)
+        self.master_gain_widget.setVisible(False)
         self.convert_button.setVisible(False)
         self.clear_all_button.setVisible(False)
         self.unpack_first_label.setVisible(True)
@@ -1283,6 +1361,7 @@ class ModBuilderGUI(QMainWindow):
         # Show the conversion options now that unpacking is done
         self.unpack_first_label.setVisible(False)
         self.scroll_area.setVisible(True)
+        self.master_gain_widget.setVisible(True)
         self.convert_button.setVisible(True)
         self.clear_all_button.setVisible(True)
 
@@ -1349,7 +1428,7 @@ class ModBuilderGUI(QMainWindow):
 
         # --- Prepare list of conversions to run ---
         acb_stem = acb_path.stem
-        tasks = [] # hca_name, path, is_looping, start, end
+        tasks = [] # hca_name, path, is_looping, start, end, gain_db
         if acb_stem.startswith("VOICE_") or acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA", "SE_EXTND15_CHARA"] or acb_stem == "BGM" or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_COURSE":
             for hca_name, var_dict in self.special_track_vars.items():
                 if var_dict.path_edit.text():
@@ -1358,24 +1437,25 @@ class ModBuilderGUI(QMainWindow):
                     end_widget = var_dict.loop_end_edit
                     start_text = start_widget.text() if start_widget else ""
                     end_text = end_widget.text() if end_widget else ""
+                    gain_db = var_dict.gain_spinbox.value()
 
-                    tasks.append((hca_name, var_dict.path_edit.text(), is_looping, start_text, end_text))
+                    tasks.append((hca_name, var_dict.path_edit.text(), is_looping, start_text, end_text, gain_db))
         else: # Stage music
             if self.intro_track_vars.path_edit.text():
-                tasks.append(("intro", self.intro_track_vars.path_edit.text(), self.intro_track_vars.loop_checkbox.isChecked(), self.intro_track_vars.loop_start_edit.text(), self.intro_track_vars.loop_end_edit.text()))
+                tasks.append(("intro", self.intro_track_vars.path_edit.text(), self.intro_track_vars.loop_checkbox.isChecked(), self.intro_track_vars.loop_start_edit.text(), self.intro_track_vars.loop_end_edit.text(), self.intro_track_vars.gain_spinbox.value()))
             if self.lap1_track_vars.path_edit.text():
-                tasks.append(("lap1", self.lap1_track_vars.path_edit.text(), self.lap1_track_vars.loop_checkbox.isChecked(), self.lap1_track_vars.loop_start_edit.text(), self.lap1_track_vars.loop_end_edit.text()))
+                tasks.append(("lap1", self.lap1_track_vars.path_edit.text(), self.lap1_track_vars.loop_checkbox.isChecked(), self.lap1_track_vars.loop_start_edit.text(), self.lap1_track_vars.loop_end_edit.text(), self.lap1_track_vars.gain_spinbox.value()))
             if self.final_lap_track_vars.path_edit.text():
-                tasks.append(("final_lap", self.final_lap_track_vars.path_edit.text(), self.final_lap_track_vars.loop_checkbox.isChecked(), self.final_lap_track_vars.loop_start_edit.text(), self.final_lap_track_vars.loop_end_edit.text()))
+                tasks.append(("final_lap", self.final_lap_track_vars.path_edit.text(), self.final_lap_track_vars.loop_checkbox.isChecked(), self.final_lap_track_vars.loop_start_edit.text(), self.final_lap_track_vars.loop_end_edit.text(), self.final_lap_track_vars.gain_spinbox.value()))
             if self.transition_track_vars.path_edit.text():
-                tasks.append(("transition", self.transition_track_vars.path_edit.text(), self.transition_track_vars.loop_checkbox.isChecked(), self.transition_track_vars.loop_start_edit.text(), self.transition_track_vars.loop_end_edit.text()))
+                tasks.append(("transition", self.transition_track_vars.path_edit.text(), self.transition_track_vars.loop_checkbox.isChecked(), self.transition_track_vars.loop_start_edit.text(), self.transition_track_vars.loop_end_edit.text(), self.transition_track_vars.gain_spinbox.value()))
             if self.transition_short_track_vars.path_edit.text():
-                tasks.append(("transition_short", self.transition_short_track_vars.path_edit.text(), self.transition_short_track_vars.loop_checkbox.isChecked(), self.transition_short_track_vars.loop_start_edit.text(), self.transition_short_track_vars.loop_end_edit.text()))
+                tasks.append(("transition_short", self.transition_short_track_vars.path_edit.text(), self.transition_short_track_vars.loop_checkbox.isChecked(), self.transition_short_track_vars.loop_start_edit.text(), self.transition_short_track_vars.loop_end_edit.text(), self.transition_short_track_vars.gain_spinbox.value()))
             if self.announce_track_vars.path_edit.text():
-                tasks.append(("announce", self.announce_track_vars.path_edit.text(), self.announce_track_vars.loop_checkbox.isChecked(), self.announce_track_vars.loop_start_edit.text(), self.announce_track_vars.loop_end_edit.text()))
+                tasks.append(("announce", self.announce_track_vars.path_edit.text(), self.announce_track_vars.loop_checkbox.isChecked(), self.announce_track_vars.loop_start_edit.text(), self.announce_track_vars.loop_end_edit.text(), self.announce_track_vars.gain_spinbox.value()))
         
         # Validate loop points for commas
-        for name, _, is_looping, start, end in tasks:
+        for name, _, is_looping, start, end, _ in tasks:
             if is_looping:
                 if ',' in start or ',' in end:
                     QMessageBox.warning(self, "Invalid Loop Points", 
@@ -1395,9 +1475,9 @@ class ModBuilderGUI(QMainWindow):
         # Sanitize WAV files (fix for 32-bit float / incompatible WAVs)
         sanitized_tasks = []
         try:
-            for name, wav_path_str, is_looping, start, end in tasks:
+            for name, wav_path_str, is_looping, start, end, gain_db in tasks:
                 safe_path = self.sanitize_wav(wav_path_str)
-                sanitized_tasks.append((name, safe_path, is_looping, start, end))
+                sanitized_tasks.append((name, safe_path, is_looping, start, end, gain_db))
             tasks = sanitized_tasks
         except (RuntimeError, FileNotFoundError) as e:
             self.on_command_error(e)
@@ -1405,7 +1485,7 @@ class ModBuilderGUI(QMainWindow):
             return
 
         print("The following files will be converted:")
-        for name, wav_path_str, _, _, _ in tasks:
+        for name, wav_path_str, _, _, _, _ in tasks:
             wav_path = Path(wav_path_str)
             print(f"  - Source: '{wav_path.name}' -> Target: {name}.hca")
 
@@ -1413,16 +1493,26 @@ class ModBuilderGUI(QMainWindow):
             QMessageBox.information(self, "Nothing to Convert", "No WAV files were selected for conversion.")
             return
 
+        # --- Setup Progress Dialog ---
+        self.progress_dialog = ProgressLogDialog("Converting Audio...", self)
+        self.update_conversion_progress.connect(self.progress_dialog.update_progress)
+        self.progress_dialog.show()
+
+        def progress_cb(current, total, msg):
+            self.update_conversion_progress.emit(current, total, msg)
+
         # --- Run conversions in a thread ---
         self.convert_button.setEnabled(False)
         self.update_status_bar.emit("Converting audio files... this may take a moment.", 0)
         try:
-            self.run_command_threaded(self.logic.convert_audio, self.on_convert_complete, self.on_command_error, args=(acb_path, tasks))
+            self.run_command_threaded(self.logic.convert_audio, self.on_convert_complete, self.on_command_error, args=(acb_path, tasks), kwargs={'progress_callback': progress_cb})
         except ValueError as e:
             QMessageBox.critical(self, "Error", str(e))
             self.reset_ui_state()
 
     def on_convert_complete(self, result):
+        if self.progress_dialog:
+            self.progress_dialog.close()
         print("All conversions complete.")
         self.update_status_bar.emit("Audio conversion complete. Ready to repack.", 0)
         QMessageBox.information(self, "Success", "Audio conversion complete!")
@@ -1452,7 +1542,8 @@ class ModBuilderGUI(QMainWindow):
                 "path": path,
                 "loop_enabled": editor.loop_checkbox.isChecked() if editor.loop_checkbox else False,
                 "loop_start": editor.loop_start_edit.text() if editor.loop_start_edit else "",
-                "loop_end": editor.loop_end_edit.text() if editor.loop_end_edit else ""
+                "loop_end": editor.loop_end_edit.text() if editor.loop_end_edit else "",
+                "gain_db": editor.gain_spinbox.value() if editor.gain_spinbox else 0.0
             }
             state[editor.original_label_text] = track_data
         
@@ -1474,6 +1565,8 @@ class ModBuilderGUI(QMainWindow):
                     editor.loop_start_edit.setText(data.get("loop_start", ""))
                 if editor.loop_end_edit:
                     editor.loop_end_edit.setText(data.get("loop_end", ""))
+                if editor.gain_spinbox:
+                    editor.gain_spinbox.setValue(data.get("gain_db", 0.0))
 
     def populate_orig_listbox(self):
         """This function now just validates the original file structure."""
