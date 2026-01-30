@@ -182,6 +182,7 @@ class ModBuilderGUI(QMainWindow):
 
         self.active_threads = [] # Keep references to active threads
         self.autoloop_threads = {} # Map widgets to their specific threads for cancellation
+        self._pending_repack = False
 
         self.progress_dialog = None
         self.config = configparser.ConfigParser()
@@ -1000,6 +1001,7 @@ class ModBuilderGUI(QMainWindow):
 
     def reset_ui_state(self):
         """Resets buttons to an interactive state after an operation."""
+        self._pending_repack = False
         self.update_status_bar.emit("Ready.", 0)
         self.unpack_button.setEnabled(bool(self._acb_file))
         self.convert_button.setEnabled(bool(self._unpacked_folder))
@@ -1462,13 +1464,13 @@ class ModBuilderGUI(QMainWindow):
                                         f"Error in track '{name}': Loop points cannot contain commas.\n\n"
                                         f"Start: {start}\nEnd: {end}\n\n"
                                         "Please remove the commas (e.g., change '1,234' to '1234') and try again.")
-                    return
+                    return False
                 try:
                     if int(start) >= int(end):
                         QMessageBox.warning(self, "Invalid Loop Points",
                                             f"Error in track '{name}': Loop End must be greater than Loop Start.\n\n"
                                             f"Start: {start}\nEnd: {end}")
-                        return
+                        return False
                 except ValueError:
                     pass # Commas are already handled, this will catch other non-integer values
 
@@ -1482,7 +1484,7 @@ class ModBuilderGUI(QMainWindow):
         except (RuntimeError, FileNotFoundError) as e:
             self.on_command_error(e)
             self.reset_ui_state()
-            return
+            return False
 
         print("The following files will be converted:")
         for name, wav_path_str, _, _, _, _ in tasks:
@@ -1491,7 +1493,7 @@ class ModBuilderGUI(QMainWindow):
 
         if not tasks:
             QMessageBox.information(self, "Nothing to Convert", "No WAV files were selected for conversion.")
-            return
+            return False
 
         # --- Setup Progress Dialog ---
         self.progress_dialog = ProgressLogDialog("Converting Audio...", self)
@@ -1506,17 +1508,25 @@ class ModBuilderGUI(QMainWindow):
         self.update_status_bar.emit("Converting audio files... this may take a moment.", 0)
         try:
             self.run_command_threaded(self.logic.convert_audio, self.on_convert_complete, self.on_command_error, args=(acb_path, tasks), kwargs={'progress_callback': progress_cb})
+            return True
         except ValueError as e:
             QMessageBox.critical(self, "Error", str(e))
             self.reset_ui_state()
+            return False
 
     def on_convert_complete(self, result):
         if self.progress_dialog:
             self.progress_dialog.close()
         print("All conversions complete.")
-        self.update_status_bar.emit("Audio conversion complete. Ready to repack.", 0)
-        QMessageBox.information(self, "Success", "Audio conversion complete!")
-        self.reset_ui_state()
+        
+        if self._pending_repack:
+            self._pending_repack = False
+            self.update_status_bar.emit("Audio conversion complete. Starting repack...", 0)
+            self._perform_repack()
+        else:
+            self.update_status_bar.emit("Audio conversion complete. Ready to repack.", 0)
+            QMessageBox.information(self, "Success", "Audio conversion complete!")
+            self.reset_ui_state()
 
     def clear_all_tracks(self):
         """Clears all input fields in the currently active track editors."""
@@ -1583,6 +1593,26 @@ class ModBuilderGUI(QMainWindow):
             self.original_files = []
 
     def repack_acb(self):
+        """Prompts the user to convert audio before repacking."""
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle("Repack Options")
+        msg_box.setText("How would you like to proceed?")
+        msg_box.setInformativeText("You can convert the currently selected audio files before repacking, or just repack using the files already in the 'output' folder.")
+        
+        convert_btn = msg_box.addButton("Convert && Repack", QMessageBox.ButtonRole.AcceptRole) #add two & instead of one to properly show single & in text
+        repack_btn = msg_box.addButton("Repack Only", QMessageBox.ButtonRole.ActionRole)
+        cancel_btn = msg_box.addButton(QMessageBox.StandardButton.Cancel)
+        
+        msg_box.exec()
+        
+        if msg_box.clickedButton() == convert_btn:
+            self._pending_repack = True
+            if not self.convert_audio():
+                self._pending_repack = False
+        elif msg_box.clickedButton() == repack_btn:
+            self._perform_repack()
+
+    def _perform_repack(self):
         print("\n--- Applying Replacements ---")
         self.update_status_bar.emit("Applying replacement audio files...", 0)
         replacement_map = {}
