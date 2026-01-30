@@ -737,6 +737,7 @@ class SettingsDialog(QDialog):
         self.main_window = parent
         self._criware_path = self.main_window.criware_folder_path # Store path during dialog session
         self._debug_enabled = getattr(self.main_window, 'debug_logging_enabled', False)
+        self._skip_sanitization_enabled_val = self.main_window.skip_wav_sanitization
 
         layout = QVBoxLayout(self)
 
@@ -770,6 +771,20 @@ class SettingsDialog(QDialog):
         self.debug_checkbox.toggled.connect(self._toggle_debug)
         debug_layout.addWidget(self.debug_checkbox)
 
+        # --- Performance Settings ---
+        perf_group = QGroupBox("Performance Settings")
+        perf_layout = QVBoxLayout(perf_group)
+        layout.addWidget(perf_group)
+
+        self.skip_sanitization_checkbox = QCheckBox("Skip WAV sanitization for faster browsing (Advanced)")
+        self.skip_sanitization_checkbox.setToolTip(
+            "If checked, the app will skip running .wav files through ffmpeg if they are already\n"
+            "in the 16-bit PCM format. This makes browsing for files instant.\n"
+            "Disable this if you encounter errors with custom .wav files."
+        )
+        self.skip_sanitization_checkbox.setChecked(self._skip_sanitization_enabled_val)
+        perf_layout.addWidget(self.skip_sanitization_checkbox)
+
         # --- Dialog Buttons (OK/Cancel) ---
         button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         button_box.accepted.connect(self.accept)
@@ -794,3 +809,7 @@ class SettingsDialog(QDialog):
     def clear_path(self):
         self._criware_path = None
         self._update_path_label()
+
+    @property
+    def _skip_sanitization_enabled(self):
+        return self.skip_sanitization_checkbox.isChecked()

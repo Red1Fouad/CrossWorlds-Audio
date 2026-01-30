@@ -215,6 +215,7 @@ class ModBuilderGUI(QMainWindow):
         self._acb_path_cache = {} # Cache for selected ACB paths per session
         self.criware_folder_path = None
         self.debug_logging_enabled = False
+        self.skip_wav_sanitization = False
 
         # --- New state vars for direct file selection ---
         self.intro_track_vars = {}
@@ -707,6 +708,8 @@ class ModBuilderGUI(QMainWindow):
                 print(f"Loaded CriWare folder path: {self.criware_folder_path}")
             
             self.debug_logging_enabled = self.config['Settings'].getboolean('debug_logging', False)
+            self.skip_wav_sanitization = self.config['Settings'].getboolean('skip_wav_sanitization', False)
+
             if self.debug_logging_enabled:
                 self._show_log_window()
             
@@ -723,6 +726,7 @@ class ModBuilderGUI(QMainWindow):
         path_str = str(self.criware_folder_path) if self.criware_folder_path else ""
         self.config['Settings']['criware_folder'] = path_str
         self.config['Settings']['debug_logging'] = str(self.debug_logging_enabled)
+        self.config['Settings']['skip_wav_sanitization'] = str(self.skip_wav_sanitization)
 
         # Limit to max and save
         self.config['Settings']['recent_files'] = ",".join(self.recent_files[:self.MAX_RECENT_FILES])
@@ -1296,6 +1300,18 @@ class ModBuilderGUI(QMainWindow):
         """
         input_path = Path(input_path_str)
 
+        # Optimization: If enabled in settings, check if the file is already 16-bit PCM WAV.
+        if self.skip_wav_sanitization:
+            try:
+                with wave.open(str(input_path), 'rb') as wav_file:
+                    # 2 bytes = 16-bit, 'NONE' = PCM (no compression)
+                    if wav_file.getsampwidth() == 2 and wav_file.getcomptype() == 'NONE':
+                        print(f"File '{input_path.name}' is already 16-bit PCM WAV. Skipping sanitization.")
+                        return input_path_str
+            except Exception:
+                # Fallback to ffmpeg if check fails or file is not a standard WAV
+                pass
+
         # Always run files through ffmpeg to guarantee a standard 16-bit PCM WAV format.
         self.update_status_bar.emit(f"Sanitizing '{input_path.name}' to 16-bit PCM...", 0)
         if QApplication.instance():
@@ -1308,16 +1324,22 @@ class ModBuilderGUI(QMainWindow):
         if tools_ffmpeg.exists():
             ffmpeg_cmd = str(tools_ffmpeg)
         
-        cmd = [ffmpeg_cmd, "-y", "-i", str(input_path), "-c:a", "pcm_s16le", str(output_path)]
+        # Add -ac 1 to explicitly set mono output. This helps ffmpeg avoid getting
+        # confused by certain input codecs like ADPCM and trying to find a
+        # non-existent encoder (e.g., 'pcm_s4le').
+        cmd = [ffmpeg_cmd, "-y", "-i", str(input_path), "-c:a", "pcm_s16le", "-ac", "1", str(output_path)]
         
         try:
             cflags = 0x08000000 if sys.platform == "win32" else 0
-            subprocess.run(cmd, check=True, capture_output=True, creationflags=cflags)
+            # Use capture_output=True and text=True to get stderr on failure
+            subprocess.run(cmd, check=True, capture_output=True, text=True, encoding='utf-8', creationflags=cflags)
             print(f"Sanitized: {input_path.name} -> {output_path.name}")
             return str(output_path)
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            print(f"Failed to sanitize '{input_path.name}'. Ensure ffmpeg is installed.")
-            return input_path_str
+        except subprocess.CalledProcessError as e:
+            error_msg = f"ffmpeg failed to sanitize '{input_path.name}'.\n\nError: {e.stderr}"
+            raise RuntimeError(error_msg) from e
+        except FileNotFoundError as e:
+            raise FileNotFoundError(f"ffmpeg not found. Please ensure it's in the 'tools' folder or your system's PATH.") from e
 
     def convert_audio(self):
         """New fully automated conversion process."""
@@ -1372,10 +1394,15 @@ class ModBuilderGUI(QMainWindow):
 
         # Sanitize WAV files (fix for 32-bit float / incompatible WAVs)
         sanitized_tasks = []
-        for name, wav_path_str, is_looping, start, end in tasks:
-            safe_path = self.sanitize_wav(wav_path_str)
-            sanitized_tasks.append((name, safe_path, is_looping, start, end))
-        tasks = sanitized_tasks
+        try:
+            for name, wav_path_str, is_looping, start, end in tasks:
+                safe_path = self.sanitize_wav(wav_path_str)
+                sanitized_tasks.append((name, safe_path, is_looping, start, end))
+            tasks = sanitized_tasks
+        except (RuntimeError, FileNotFoundError) as e:
+            self.on_command_error(e)
+            self.reset_ui_state()
+            return
 
         print("The following files will be converted:")
         for name, wav_path_str, _, _, _ in tasks:
@@ -1719,6 +1746,8 @@ class ModBuilderGUI(QMainWindow):
             
             old_debug = self.debug_logging_enabled
             self.debug_logging_enabled = dialog._debug_enabled
+            
+            self.skip_wav_sanitization = dialog._skip_sanitization_enabled
             
             if self.debug_logging_enabled and not old_debug:
                 self._show_log_window()
