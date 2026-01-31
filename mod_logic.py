@@ -14,6 +14,7 @@ class ModLogic:
         self.ACB_EDITOR = self.TOOLS_DIR / "AcbEditor.exe"
         self.CONVERT_BAT = self.TOOLS_DIR / "Convert2UNION.bat"
         self.UNREAL_PAK = self.TOOLS_DIR / "UnrealPak.bat"
+        self.CRI_UTF_TOOL = self.TOOLS_DIR / "KwasTools" / "cri_utf_tool.exe"
         
         if self.IS_LINUX:
             # On Linux, check for local ffmpeg binary, otherwise assume system 'ffmpeg'
@@ -184,10 +185,74 @@ class ModLogic:
         
         return len(replacement_map)
 
+    def create_ai_voice(self, original_acb_path, ai_voice_dir):
+        """Creates an AI version of the voice ACB."""
+        original_acb = Path(original_acb_path)
+        stem = original_acb.stem # e.g. VOICE_EGP
+        
+        # Ensure output dir exists
+        ai_dir = Path(ai_voice_dir)
+        ai_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Target paths
+        target_acb = ai_dir / original_acb.name
+        target_awb = ai_dir / original_acb.with_suffix('.awb').name
+        
+        # Copy files
+        print(f"Copying {original_acb.name} to {ai_dir}...")
+        shutil.copy2(original_acb, target_acb)
+        os.chmod(target_acb, 0o777) # Ensure writable
+        
+        if original_acb.with_suffix('.awb').exists():
+            shutil.copy2(original_acb.with_suffix('.awb'), target_awb)
+            os.chmod(target_awb, 0o777)
+            
+        # Extract XML
+        print(f"Extracting XML from {target_acb.name}...")
+        self._execute_command([str(self.CRI_UTF_TOOL.resolve()), target_acb.name], False, cwd=str(ai_dir))
+        
+        xml_file = target_acb.with_suffix('.acb.xml')
+        if not xml_file.exists():
+            raise FileNotFoundError(f"Failed to extract XML: {xml_file}")
+            
+        # Edit XML
+        parts = stem.split('_')
+        if len(parts) >= 2:
+            char_code = parts[1].lower()
+            search_str = f"voice_{char_code}"
+            replace_str = f"voice_{char_code}AI"
+            
+            print(f"Editing XML: Replacing '{search_str}' with '{replace_str}'...")
+            with open(xml_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            new_content = content.replace(search_str, replace_str)
+            
+            with open(xml_file, 'w', encoding='utf-8') as f:
+                f.write(new_content)
+
+        # Repack ACB from XML
+        print(f"Repacking ACB from XML...")
+        self._execute_command([str(self.CRI_UTF_TOOL.resolve()), xml_file.name], False, cwd=str(ai_dir))
+        
+        # Rename to *AI.acb/awb
+        final_acb_path = ai_dir / f"{stem}AI.acb"
+        final_awb_path = ai_dir / f"{stem}AI.awb"
+        
+        if target_acb.exists():
+            if final_acb_path.exists(): final_acb_path.unlink()
+            target_acb.rename(final_acb_path)
+            
+        if target_awb.exists():
+            if final_awb_path.exists(): final_awb_path.unlink()
+            target_awb.rename(final_awb_path)
+
+        return str(final_acb_path)
+
     def check_tools(self):
         """Checks if all required tools exist."""
         missing_tools = []
-        for tool in [self.ACB_EDITOR, self.CONVERT_BAT, self.UNREAL_PAK, self.FFMPEG]:
+        for tool in [self.ACB_EDITOR, self.CONVERT_BAT, self.UNREAL_PAK, self.FFMPEG, self.CRI_UTF_TOOL]:
             # Skip check for system ffmpeg on Linux
             if self.IS_LINUX and str(tool) == "ffmpeg":
                 continue

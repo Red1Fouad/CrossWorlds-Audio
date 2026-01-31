@@ -685,6 +685,23 @@ class ModBuilderGUI(QMainWindow):
             else: # Cancel was clicked
                 return
 
+        # New VOICE logic
+        is_ai_voice = False
+        if acb_stem.startswith("VOICE_"):
+            msg_box = QMessageBox(self)
+            msg_box.setWindowTitle(f"Select Voice Type")
+            msg_box.setText(f"Which voice type do you want to use for {friendly_name}?")
+            default_btn = msg_box.addButton("Default", QMessageBox.ButtonRole.ActionRole)
+            ai_btn = msg_box.addButton("AI Voice", QMessageBox.ButtonRole.ActionRole)
+            cancel_btn = msg_box.addButton(QMessageBox.StandardButton.Cancel)
+            
+            msg_box.exec()
+            
+            if msg_box.clickedButton() == ai_btn:
+                is_ai_voice = True
+            elif msg_box.clickedButton() == cancel_btn:
+                return
+
         filepath = None
 
         # 1. Try to find the file in the selected CriWare folder first.
@@ -719,12 +736,47 @@ class ModBuilderGUI(QMainWindow):
 
         # If we have a valid filepath (either from cache or prompt), proceed.
         if filepath:
+            if is_ai_voice:
+                self.generate_and_load_ai_voice(filepath)
+                return
+
             self.add_to_recent_files(filepath)
             self.editor_screen.setVisible(True)
             self.selection_screen.setVisible(False)
 
             # Set the file and trigger auto-unpack
             self.set_acb_file(filepath, auto_unpack=True)
+
+    def generate_and_load_ai_voice(self, original_filepath):
+        # Use a dedicated folder for AI voices
+        ai_voice_dir = Path("AI VOICE")
+        original_stem = Path(original_filepath).stem
+        expected_ai_acb = ai_voice_dir / f"{original_stem}AI.acb"
+
+        if expected_ai_acb.exists():
+            print(f"Found existing AI voice: {expected_ai_acb}")
+            self.on_ai_voice_generated(str(expected_ai_acb))
+            return
+
+        self.progress_dialog = ProgressLogDialog("Generating AI Voice...", self)
+        self.progress_dialog.show()
+        self.progress_dialog.update_progress(0, 0, "Initializing AI Voice generation...")
+        
+        self.run_command_threaded(
+            self.logic.create_ai_voice,
+            self.on_ai_voice_generated,
+            self.on_command_error,
+            args=(original_filepath, str(ai_voice_dir))
+        )
+
+    def on_ai_voice_generated(self, new_filepath):
+        if self.progress_dialog:
+            self.progress_dialog.close()
+        
+        self.add_to_recent_files(new_filepath)
+        self.editor_screen.setVisible(True)
+        self.selection_screen.setVisible(False)
+        self.set_acb_file(new_filepath, auto_unpack=True)
 
     def _create_separator(self):
         line = QFrame()
@@ -888,7 +940,12 @@ class ModBuilderGUI(QMainWindow):
         is_voice_acb = acb_stem.startswith("VOICE_")
         
         if is_voice_acb:
-            track_dict_name = f"VOICE_{acb_stem.split('_')[1]}_TRACKS"
+            # Handle AI suffix for dictionary lookup
+            lookup_stem = acb_stem
+            if lookup_stem.endswith("AI"):
+                lookup_stem = lookup_stem[:-2]
+            
+            track_dict_name = f"VOICE_{lookup_stem.split('_')[1]}_TRACKS"
             track_dict = getattr(data, track_dict_name, {})
         elif acb_stem == "SE_EXTND10_CHARA": # Miku - check this before SPECIAL_TRACK_MAP
             track_dict = data.VOICE_EXTND10_CHARA_TRACKS
@@ -1506,8 +1563,16 @@ class ModBuilderGUI(QMainWindow):
         # --- Run conversions in a thread ---
         self.convert_button.setEnabled(False)
         self.update_status_bar.emit("Converting audio files... this may take a moment.", 0)
+        
+        # Handle AI Voice conversion using original profile
+        conversion_acb_path = acb_path
+        if acb_path.stem.endswith("AI") and acb_path.stem.startswith("VOICE_"):
+            original_stem = acb_path.stem[:-2]
+            conversion_acb_path = acb_path.with_name(f"{original_stem}.acb")
+            print(f"AI Voice detected. Using conversion profile for: {original_stem}")
+
         try:
-            self.run_command_threaded(self.logic.convert_audio, self.on_convert_complete, self.on_command_error, args=(acb_path, tasks), kwargs={'progress_callback': progress_cb})
+            self.run_command_threaded(self.logic.convert_audio, self.on_convert_complete, self.on_command_error, args=(conversion_acb_path, tasks), kwargs={'progress_callback': progress_cb})
             return True
         except ValueError as e:
             QMessageBox.critical(self, "Error", str(e))
