@@ -1867,6 +1867,7 @@ class ModBuilderGUI(QMainWindow):
             "Sonic Racing: Crossworlds.\n\n"
             "Special Thanks:\n"
             "Lycus - For Testing and Feedback\n"
+            "ThisKwasior - Creator of KwasTools\n"
         )
         QMessageBox.information(self, "Credits", credits_text)
 
