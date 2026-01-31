@@ -7,6 +7,33 @@ import shutil
 import subprocess
 import wave
 
+# Fix for PySide6 DLL loading issues on Wine/Windows (PyInstaller builds)
+# This helps Wine find icuuc.dll and other dependencies that might be in _internal or _internal/PySide6
+if sys.platform == 'win32' and getattr(sys, 'frozen', False):
+    base_path = Path(sys.executable).parent
+    internal_path = base_path / "_internal"
+    
+    # Handle cases where _internal might not exist (older PyInstaller or --onefile)
+    if not internal_path.exists():
+        if hasattr(sys, '_MEIPASS'):
+            internal_path = Path(sys._MEIPASS)
+        else:
+            internal_path = base_path
+
+    if internal_path.exists():
+        # Add paths to PATH environment variable
+        paths_to_add = [str(internal_path), str(internal_path / "PySide6")]
+        os.environ['PATH'] = os.pathsep.join(paths_to_add + [os.environ.get('PATH', '')])
+        
+        # Essential for Python 3.8+ on Windows (and Wine) to find DLLs loaded by extension modules
+        if hasattr(os, 'add_dll_directory'):
+            for p in paths_to_add:
+                try:
+                    if os.path.exists(p):
+                        os.add_dll_directory(p)
+                except Exception:
+                    pass
+
 try:
     from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel, QLineEdit,
                                    QPushButton, QFileDialog, QMessageBox, QTreeWidget, QTreeWidgetItem, QTabWidget, QGridLayout, QSplashScreen,
@@ -19,7 +46,7 @@ except ImportError:
     sys.exit(1)
 
 import data
-from ui_components import BGMSelectorWindow, ImageCard, TrackEditorWidget, SettingsDialog, LogWindow, ProgressLogDialog, JukeboxTrackItem
+from ui_components import BGMSelectorWindow, ImageCard, TrackEditorWidget, SettingsDialog, LogWindow, ProgressLogDialog, JukeboxTrackItem, JukeboxTrackEditorWidget
 from volume_logic import normalize_audio_file
 from mod_logic import ModLogic
 
@@ -51,6 +78,33 @@ ADDITIONAL_TRACK_INDICES = {
     "BGM_STG2009": (4, 5, 6), "BGM_STG2010": (4, 6, 5), "BGM_STG2011": (4, 5, 6),
     "BGM_STG2012": (4, 5, None), "BGM_STG2014": (4, 5, 6), "BGM_STG2015": (4, 5, None),
     "BGM_STG2016": (4, 5, 6), "BGM_STG2017": (4, 5, 6), "BGM_STG2019": (4, 5, None),
+}
+
+# --- Jukebox Image Mapping ---
+JUKEBOX_IMAGE_MAP = {
+    "BGM_JBM0002": "UI_MusicJacket_04003", "BGM_JBM0003": "UI_MusicJacket_04003",
+    "BGM_JBM0004": "UI_MusicJacket_04006", "BGM_JBM0005": "UI_MusicJacket_04006",
+    "BGM_JBM0009": "UI_MusicJacket_04007", "BGM_JBM0008": "UI_MusicJacket_04007", "BGM_JBM0010": "UI_MusicJacket_04007", "BGM_JBM0007": "UI_MusicJacket_04007", "BGM_JBM0006": "UI_MusicJacket_04007",
+    "BGM_JBM0061": "UI_MusicJacket_04024", "BGM_JBM0062": "UI_MusicJacket_04024",
+    "BGM_JBM0015": "UI_MusicJacket_04010", "BGM_JBM0011": "UI_MusicJacket_04010", "BGM_JBM0012": "UI_MusicJacket_04010", "BGM_JBM0013": "UI_MusicJacket_04010", "BGM_JBM0014": "UI_MusicJacket_04010",
+    "BGM_JBM0051": "UI_MusicJacket_04020", "BGM_JBM0052": "UI_MusicJacket_04020", "BGM_JBM0053": "UI_MusicJacket_04020",
+    "BGM_JBM0064": "UI_MusicJacket_04026",
+    "BGM_JBM0017": "UI_MusicJacket_04011", "BGM_JBM0019": "UI_MusicJacket_04011", "BGM_JBM0016": "UI_MusicJacket_04011", "BGM_JBM0018": "UI_MusicJacket_04011", "BGM_JBM0020": "UI_MusicJacket_04011",
+    "BGM_JBM0021": "UI_MusicJacket_04012", "BGM_JBM0022": "UI_MusicJacket_04012",
+    "BGM_JBM0023": "UI_MusicJacket_04013", "BGM_JBM0024": "UI_MusicJacket_04013",
+    "BGM_JBM0025": "UI_MusicJacket_04014", "BGM_JBM0026": "UI_MusicJacket_04014", "BGM_JBM0027": "UI_MusicJacket_04014",
+    "BGM_JBM0029": "UI_MusicJacket_04015", "BGM_JBM0030": "UI_MusicJacket_04015", "BGM_JBM0031": "UI_MusicJacket_04015", "BGM_JBM0028": "UI_MusicJacket_04015",
+    "BGM_JBM0065": "UI_MusicJacket_04027", "BGM_JBM0066": "UI_MusicJacket_04027", "BGM_JBM0067": "UI_MusicJacket_04027",
+    "BGM_JBM0033": "UI_MusicJacket_04016", "BGM_JBM0035": "UI_MusicJacket_04016", "BGM_JBM0036": "UI_MusicJacket_04016", "BGM_JBM0034": "UI_MusicJacket_04016",
+    "BGM_JBM0054": "UI_MusicJacket_04022",
+    "BGM_JBM0038": "UI_MusicJacket_04017", "BGM_JBM0039": "UI_MusicJacket_04017", "BGM_JBM0040": "UI_MusicJacket_04017", "BGM_JBM0041": "UI_MusicJacket_04017", "BGM_JBM0037": "UI_MusicJacket_04017",
+    "BGM_JBM0042": "UI_MusicJacket_04018", "BGM_JBM0043": "UI_MusicJacket_04018", "BGM_JBM0044": "UI_MusicJacket_04018",
+    "BGM_JBM0045": "UI_MusicJacket_04019", "BGM_JBM0046": "UI_MusicJacket_04019", "BGM_JBM0047": "UI_MusicJacket_04019",
+    "BGM_EXTND23": "UI_MusicJacket_Extnd23_01",
+    "BGM_EXTND26": "UI_MusicJacket_Extnd26_01",
+    "BGM_EXTND27": "UI_MusicJacket_Extnd27_01",
+    "BGM_BONUS01": "UI_MusicJacket_04011",
+    "BGM_BONUS02": "UI_MusicJacket_05002",
 }
 
 # --- New BGM Tracks ---
@@ -595,7 +649,7 @@ class ModBuilderGUI(QMainWindow):
         self.master_gain_spinbox.setSuffix(" dB")
         self.master_gain_spinbox.setToolTip("Set volume gain for all visible tracks.")
         self.master_gain_spinbox.setValue(0.0)
-        self.master_gain_spinbox.setFixedWidth(80)
+        self.master_gain_spinbox.setFixedWidth(100)
         master_gain_layout.addWidget(self.master_gain_spinbox)
         
         apply_master_gain_btn = QPushButton("Apply to All")
@@ -727,7 +781,21 @@ class ModBuilderGUI(QMainWindow):
         col, row = 0, 0
         for album_key in data.JUKEBOX_ALBUMS.keys():
             friendly_name = album_key 
-            image_path = self._find_image_path(album_key, friendly_name, "jukebox/main")
+            if album_key == "Sonic OST":
+                image_filename = "UI_Albumjacket_04001"
+            elif album_key == "Creepy Nuts":
+                image_filename = "UI_MusicJacket_Extnd23_01"
+            elif album_key == "Crazy Raccoon":
+                image_filename = "UI_MusicJacket_Extnd26_01"
+            elif album_key == "Inugami Korone":
+                image_filename = "UI_MusicJacket_Extnd27_01"
+            elif album_key == "Werehog DLC":
+                image_filename = "UI_MusicJacket_04011"
+            elif album_key == "Sonic Prime DLC":
+                image_filename = "UI_MusicJacket_05002"
+            else:
+                image_filename = album_key
+            image_path = self._find_image_path(image_filename, friendly_name, "jukebox/main")
             
             card = ImageCard(album_key, friendly_name, image_path)
             card.clicked.connect(self.on_jukebox_album_selected)
@@ -748,7 +816,21 @@ class ModBuilderGUI(QMainWindow):
         
         # Set Album Jacket
         friendly_name = album_key 
-        image_path = self._find_image_path(album_key, friendly_name, "jukebox/main")
+        if album_key == "Sonic OST":
+            image_filename = "UI_Albumjacket_04001"
+        elif album_key == "Creepy Nuts":
+            image_filename = "UI_MusicJacket_Extnd23_01"
+        elif album_key == "Crazy Raccoon":
+            image_filename = "UI_MusicJacket_Extnd26_01"
+        elif album_key == "Inugami Korone":
+            image_filename = "UI_MusicJacket_Extnd27_01"
+        elif album_key == "Werehog DLC":
+            image_filename = "UI_MusicJacket_04011"
+        elif album_key == "Sonic Prime DLC":
+            image_filename = "UI_MusicJacket_05002"
+        else:
+            image_filename = album_key
+        image_path = self._find_image_path(image_filename, friendly_name, "jukebox/main")
         if image_path and Path(image_path).exists():
             pixmap = QPixmap(str(image_path))
             self.album_jacket_label.setPixmap(pixmap.scaled(self.album_jacket_label.size(), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
@@ -758,23 +840,18 @@ class ModBuilderGUI(QMainWindow):
         
         tracks = data.JUKEBOX_ALBUMS.get(album_key, [])
         for track_key in tracks:
-            # Find image for the track
-            track_image_path = self._find_image_path(track_key, track_key, "jukebox/main")
+            # track_key is the ACB stem (e.g., BGM_JBM0002)
+            # Get the friendly name for the Song (ACB)
+            stem_key = track_key.replace("BGM_", "")
+            friendly_name = data.BGM_DATA["Jukebox"].get(stem_key, track_key)
             
-            # Determine friendly name from the tracks inside the ACB
-            track_dict = data.SPECIAL_TRACK_MAP.get(track_key)
-            if track_dict:
-                for song_title in track_dict.keys():
-                    display_title = song_title.replace("(Final Lap)", ": Final Lap")
-                    # Create custom list item for each song
-                    item = JukeboxTrackItem(track_key, display_title, track_image_path)
-                    item.clicked.connect(self.on_card_selected)
-                    self.tracks_list_layout.addWidget(item)
-            else:
-                # Fallback if no track dict found
-                item = JukeboxTrackItem(track_key, track_key, track_image_path)
-                item.clicked.connect(self.on_card_selected)
-                self.tracks_list_layout.addWidget(item)
+            # Find image for the Song
+            image_filename = JUKEBOX_IMAGE_MAP.get(track_key, track_key)
+            track_image_path = self._find_image_path(image_filename, friendly_name, "jukebox/main")
+            
+            item = JukeboxTrackItem(track_key, friendly_name, track_image_path)
+            item.clicked.connect(self.on_card_selected)
+            self.tracks_list_layout.addWidget(item)
 
     def on_card_selected(self, acb_stem, friendly_name):
         """Handles the click event from an ImageCard."""
@@ -1111,7 +1188,17 @@ class ModBuilderGUI(QMainWindow):
             elif acb_stem in data.NON_LOOPABLE_SPECIAL_TRACKS:
                 if hca_name in data.NON_LOOPABLE_SPECIAL_TRACKS.get(acb_stem, []):
                     can_loop = False
-            editor_widget = TrackEditorWidget(label, show_loop_options=can_loop)
+            
+            if acb_stem.startswith("BGM_JBM"):
+                # For Jukebox tracks, use the specialized widget with the song image
+                stem_key = acb_stem.replace("BGM_", "")
+                friendly_name = data.BGM_DATA["Jukebox"].get(stem_key, acb_stem)
+                image_filename = JUKEBOX_IMAGE_MAP.get(acb_stem, acb_stem)
+                image_path = self._find_image_path(image_filename, friendly_name, "jukebox/main")
+                editor_widget = JukeboxTrackEditorWidget(label, image_path, show_loop_options=can_loop)
+            else:
+                editor_widget = TrackEditorWidget(label, show_loop_options=can_loop)
+
             editor_widget.play_requested.connect(self.on_play_requested)
             editor_widget.autoloop_requested.connect(self.on_autoloop_requested)
             editor_widget.cancel_autoloop_requested.connect(self.on_cancel_autoloop)
@@ -1577,10 +1664,8 @@ class ModBuilderGUI(QMainWindow):
         if tools_ffmpeg.exists():
             ffmpeg_cmd = str(tools_ffmpeg)
         
-        # Add -ac 1 to explicitly set mono output. This helps ffmpeg avoid getting
-        # confused by certain input codecs like ADPCM and trying to find a
-        # non-existent encoder (e.g., 'pcm_s4le').
-        cmd = [ffmpeg_cmd, "-y", "-i", str(input_path), "-c:a", "pcm_s16le", "-ac", "1", str(output_path)]
+        # Removed -ac 1 to preserve channels (Stereo/Mono) from input.
+        cmd = [ffmpeg_cmd, "-y", "-i", str(input_path), "-c:a", "pcm_s16le", str(output_path)]
         
         try:
             cflags = 0x08000000 if sys.platform == "win32" else 0

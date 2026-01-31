@@ -61,6 +61,68 @@ BGM_DATA = {
         "EXTND11_CHARA": "Joker",
         "EXTND12_CHARA": "Ichiban Kasuga",
         "EXTND15_CHARA": "NiGHTS",
+    },
+    "Jukebox": {
+        "JBM0002": "Sonic Boom",
+        "JBM0003": "Stardust Speedway",
+        "JBM0004": "It Doesn't Matter",
+        "JBM0005": "Run Through the Speed Highway",
+        "JBM0009": "Escape From the City",
+        "JBM0008": "That's the Way I Like It",
+        "JBM0010": "Won't Stop, Just Go!",
+        "JBM0007": "Vengeance is Mine",
+        "JBM0006": "Throw It All Away",
+        "JBM0061": "Sonic Speed Riders",
+        "JBM0062": "Theme of Green Cave",
+        "JBM0015": "His World",
+        "JBM0011": "Wave Ocean",
+        "JBM0012": "Kingdom Valley",
+        "JBM0013": "Crisis City",
+        "JBM0014": "Solaris Phase 2",
+        "JBM0051": "Seven Rings In Hand",
+        "JBM0052": "The Wicked Wild",
+        "JBM0053": "No Way Through",
+        "JBM0064": "Un-gravitify",
+        "JBM0017": "Windmill Isle",
+        "JBM0019": "Cool Edge",
+        "JBM0016": "Rooftop Run",
+        "JBM0018": "Dragon Road",
+        "JBM0020": "Super Sonic vs. Perfect Dark Gaia",
+        "JBM0021": "Sky Sanctuary",
+        "JBM0022": "Seaside Hill",
+        "JBM0023": "Windy Hill",
+        "JBM0024": "Hidden World",
+        "JBM0025": "Studiopolis",
+        "JBM0026": "Stardust Speedway Zone",
+        "JBM0027": "Metallic Madness",
+        "JBM0029": "Fist Bump",
+        "JBM0030": "Luminous Forest",
+        "JBM0031": "Sunset Heights",
+        "JBM0028": "Infinite",
+        "JBM0065": "Ocean View",
+        "JBM0066": "Roulette Road",
+        "JBM0067": "Sky Road",
+        "JBM0033": "Tropical Resort",
+        "JBM0035": "Sweet Mountain",
+        "JBM0036": "Starlight Carnival",
+        "JBM0034": "Planet Wisp",
+        "JBM0054": "Sonic World RMX",
+        "JBM0038": "I'm Here",
+        "JBM0039": "Cyber Space",
+        "JBM0040": "Dropaholic",
+        "JBM0041": "Undefeatable",
+        "JBM0037": "Find Your Flame",
+        "JBM0042": "Bridge Island",
+        "JBM0043": "Speed Jungle",
+        "JBM0044": "Sand Sanctuary",
+        "JBM0045": "Biolizard",
+        "JBM0046": "Kingdom Valley Act 1",
+        "JBM0047": "Mephiles",
+        "EXTND23": "Get Higher",
+        "EXTND26": "No.1",
+        "EXTND27": "Inugami Precious Moments",
+        "BONUS01": "Werehog DLC Tracks",
+        "BONUS02": "Sonic Prime DLC Tracks",
     }
 }
 
@@ -255,97 +317,66 @@ VOICE_EXTND15_CHARA_TRACKS = {
     "Stunt 03": "00009",
 }
 
-JUKEBOX_04003_TRACKS = {
-    "Sonic Boom": "00000_streaming", "Sonic Boom: Final Lap": "00001_streaming",
-    "Stardust Speedway": "00002_streaming", "Stardust Speedway (Final Lap)": "00003_streaming",
-}
-JUKEBOX_04006_TRACKS = {
-    "It Doesn't Matter": "00000_streaming", "It Doesn't Matter (Final Lap)": "00001_streaming",
-    "Run Through the Speed Highway": "00002_streaming", "Run Through the Speed Highway (Final Lap)": "00003_streaming",
-}
-JUKEBOX_04007_TRACKS = {
-    "Escape From the City (City Escape)": "00000_streaming", "Escape From the City (City Escape) (Final Lap)": "00001_streaming",
-    "That's the Way I Like It (Metal Harbor)": "00002_streaming", "That's the Way I Like It (Metal Harbor) (Final Lap)": "00003_streaming",
-    "Won't Stop, Just Go! (Green Forest)": "00004_streaming", "Won't Stop, Just Go! (Green Forest) (Final Lap)": "00005_streaming",
-    "Vengeance is Mine": "00006_streaming", "Vengeance is Mine (Final Lap)": "00007_streaming",
-    "Throw it All Away": "00008_streaming", "Throw it All Away (Final Lap)": "00009_streaming",
-}
-JUKEBOX_04024_TRACKS = {
-    "Sonic Speed Riders": "00000_streaming", "Sonic Speed Riders (Final Lap)": "00001_streaming",
-    "Theme of Green Cave": "00002_streaming", "Theme of Green Cave (Final Lap)": "00003_streaming",
-}
-JUKEBOX_04010_TRACKS = {
-    "His World": "00000_streaming", "His World (Final Lap)": "00001_streaming",
-    "Wave Ocean (The Water's Edge)": "00002_streaming", "Wave Ocean (The Water's Edge) (Final Lap)": "00003_streaming",
-    "Kingdom Valley": "00004_streaming", "Kingdom Valley (Final Lap)": "00005_streaming",
-    "Crisis City": "00006_streaming", "Crisis City (Final Lap)": "00007_streaming",
-    "Solaris Phase 2": "00008_streaming", "Solaris Phase 2 (Final Lap)": "00009_streaming",
-}
-JUKEBOX_04020_TRACKS = {
-    "Seven Rings In Hand": "00000_streaming", "Seven Rings In Hand (Final Lap)": "00001_streaming",
-    "The Wicked Wild": "00002_streaming", "The Wicked Wild (Final Lap)": "00003_streaming",
-    "No Way Through": "00004_streaming", "No Way Through (Final Lap)": "00005_streaming",
-}
-JUKEBOX_04026_TRACKS = {
-    "Un-gravitify": "00000_streaming", "Un-gravitify (Final Lap)": "00001_streaming",
-}
-JUKEBOX_04011_TRACKS = {
-    "Windmill Isle - Day": "00000_streaming", "Windmill Isle - Day (Final Lap)": "00001_streaming",
-    "Cool Edge - Day": "00002_streaming", "Cool Edge - Day (Final Lap)": "00003_streaming",
-    "Rooftop Run - Day": "00004_streaming", "Rooftop Run - Day (Final Lap)": "00005_streaming",
-    "Dragon Road- Day": "00006_streaming", "Dragon Road- Day (Final Lap)": "00007_streaming",
-    "Super Sonic vs. Perfect Dark Gaia": "00008_streaming", "Super Sonic vs. Perfect Dark Gaia (Final Lap)": "00009_streaming",
-}
-JUKEBOX_04012_TRACKS = {
-    "SKY SANCTUARY : ACT2 - Normal": "00000_streaming", "SKY SANCTUARY : ACT2 - Fast": "00001_streaming",
-    "SEASIDE HILL: ACT2": "00002_streaming", "SEASIDE HILL: ACT2 (Final Lap)": "00003_streaming",
-}
-JUKEBOX_04013_TRACKS = {
-    "Windy Hill (Zone 1)": "00000_streaming", "Windy Hill (Zone 1) (Final Lap)": "00001_streaming",
-    "Hidden World": "00002_streaming", "Hidden World (Final Lap)": "00003_streaming",
-}
-JUKEBOX_04014_TRACKS = {
-    "Studiopolis Zone Act 1": "00000_streaming", "Studiopolis Zone Act 1 (Final Lap)": "00001_streaming",
-    "Stardust Speedway Zone Act 2": "00002_streaming", "Stardust Speedway Zone Act 2 (Final Lap)": "00003_streaming",
-    "Metallic Madness Zone Act 2": "00004_streaming", "Metallic Madness Zone Act 2 (Final Lap)": "00005_streaming",
-}
-JUKEBOX_04015_TRACKS = {
-    "Fist Bump": "00000_streaming", "Fist Bump (Final Lap)": "00001_streaming",
-    "Luminous Forest": "00002_streaming", "Luminous Forest (Final Lap)": "00003_streaming",
-    "Sunset Heights": "00004_streaming", "Sunset Heights (Final Lap)": "00005_streaming",
-    "Infinite": "00006_streaming", "Infinite (Final Lap)": "00007_streaming",
-}
-JUKEBOX_04027_TRACKS = {
-    "Ocean View: Lap Music": "00000_streaming", "Ocean View: Final Lap": "00001_streaming",
-    "Roulette Road: Lap Music": "00002_streaming", "Roulette Road: Final Lap": "00003_streaming",
-    "Sky Road: Lap Music": "00004_streaming", "Sky Road: Final Lap": "00005_streaming",
-}
-JUKEBOX_04016_TRACKS = {
-    "Tropical Resort Act 1 (Remix)": "00000_streaming", "Tropical Resort Act 1 (Remix) (Final Lap)": "00001_streaming",
-    "Sweet Mountain Act 1 (Remix)": "00002_streaming", "Sweet Mountain Act 1 (Remix) (Final Lap)": "00003_streaming",
-    "Starlight Carnival Act 1 (Remix)": "00004_streaming", "Starlight Carnival Act 1 (Remix) (Final Lap)": "00005_streaming",
-    "Planet Wisp Act 1 (Remix)": "00006_streaming", "Planet Wisp Act 1 (Remix) (Final Lap)": "00007_streaming",
-}
-JUKEBOX_04022_TRACKS = {
-    "Title / Main Menu ~ Sonic World RMX-": "00000_streaming", "Title / Main Menu ~ Sonic World RMX- (Final Lap)": "00001_streaming",
-}
-JUKEBOX_04017_TRACKS = {
-    "I'm Here - Revisited": "00000_streaming", "I'm Here - Revisited (Final Lap)": "00001_streaming",
-    "Cyber Space 1-2: Flowing": "00002_streaming", "Cyber Space 1-2: Flowing (Final Lap)": "00003_streaming",
-    "Dropaholic": "00004_streaming", "Dropaholic (Final Lap)": "00005_streaming",
-    "Undefeatable": "00006_streaming", "Undefeatable (Final Lap)": "00007_streaming",
-    "Find Your Flame": "00008_streaming", "Find Your Flame (Final Lap)": "00009_streaming",
-}
-JUKEBOX_04018_TRACKS = {
-    "Bridge Island Zone Act 1": "00000_streaming", "Bridge Island Zone Act 1 (Final Lap)": "00001_streaming",
-    "Speed Jungle Zone Act 1": "00002_streaming", "Speed Jungle Zone Act 1 (Final Lap)": "00003_streaming",
-    "Sand Sanctuary Zone Act 1": "00004_streaming", "Sand Sanctuary Zone Act 1 (Final Lap)": "00005_streaming",
-}
-JUKEBOX_04019_TRACKS = {
-    "Boss Battle: Biolizard": "00000_streaming", "Boss Battle: Biolizard (Final Lap)": "00001_streaming",
-    "Kingdom Valley: Act 1": "00002_streaming", "Kingdom Valley: Act 1 (Final Lap)": "00003_streaming",
-    "Boss Battle: Mephiles Pt-II": "00004_streaming", "Boss Battle: Mephiles Pt-II (Final Lap)": "00005_streaming",
-}
+BGM_JBM0002_TRACKS = {"Sonic Boom": "00010_streaming", "Sonic Boom: Final Lap": "00012_streaming"}
+BGM_JBM0003_TRACKS = {"Stardust Speedway": "00019_streaming", "Stardust Speedway (Final Lap)": "00020_streaming"}
+BGM_JBM0004_TRACKS = {"It Doesn't Matter": "00019_streaming", "It Doesn't Matter (Final Lap)": "00020_streaming"}
+BGM_JBM0005_TRACKS = {"Run Through the Speed Highway": "00019_streaming", "Run Through the Speed Highway (Final Lap)": "00020_streaming"}
+BGM_JBM0009_TRACKS = {"Escape From the City (City Escape)": "00019_streaming", "Escape From the City (City Escape) (Final Lap)": "00020_streaming"}
+BGM_JBM0008_TRACKS = {"That's the Way I Like It (Metal Harbor)": "00019_streaming", "That's the Way I Like It (Metal Harbor) (Final Lap)": "00020_streaming"}
+BGM_JBM0010_TRACKS = {"Won't Stop, Just Go! (Green Forest)": "00019_streaming", "Won't Stop, Just Go! (Green Forest) (Final Lap)": "00020_streaming"}
+BGM_JBM0007_TRACKS = {"Vengeance is Mine": "00019_streaming", "Vengeance is Mine (Final Lap)": "00020_streaming"}
+BGM_JBM0006_TRACKS = {"Throw It All Away": "00019_streaming", "Throw It All Away (Final Lap)": "00020_streaming"}
+BGM_JBM0061_TRACKS = {"Sonic Speed Riders": "00019_streaming", "Sonic Speed Riders (Final Lap)": "00020_streaming"}
+BGM_JBM0062_TRACKS = {"Theme of Green Cave": "00019_streaming", "Theme of Green Cave (Final Lap)": "00020_streaming"}
+BGM_JBM0015_TRACKS = {"His World": "00010_streaming", "His World (Final Lap)": "00011_streaming"}
+BGM_JBM0011_TRACKS = {"Wave Ocean (The Water's Edge)": "00010_streaming", "Wave Ocean (The Water's Edge) (Final Lap)": "00011_streaming"}
+BGM_JBM0012_TRACKS = {"Kingdom Valley": "00019_streaming", "Kingdom Valley (Final Lap)": "00020_streaming"}
+BGM_JBM0013_TRACKS = {"Crisis City": "00019_streaming", "Crisis City (Final Lap)": "00020_streaming"}
+BGM_JBM0014_TRACKS = {"Solaris Phase 2": "00010_streaming", "Solaris Phase 2 (Final Lap)": "00011_streaming"}
+BGM_JBM0051_TRACKS = {"Seven Rings In Hand": "00019_streaming", "Seven Rings In Hand (Final Lap)": "00020_streaming"}
+BGM_JBM0052_TRACKS = {"The Wicked Wild": "00019_streaming", "The Wicked Wild (Final Lap)": "00020_streaming"}
+BGM_JBM0053_TRACKS = {"No Way Through": "00019_streaming", "No Way Through (Final Lap)": "00020_streaming"}
+BGM_JBM0064_TRACKS = {"Un-gravitify": "00019_streaming", "Un-gravitify (Final Lap)": "00020_streaming"}
+BGM_JBM0017_TRACKS = {"Windmill Isle - Day": "00019_streaming", "Windmill Isle - Day (Final Lap)": "00020_streaming"}
+BGM_JBM0019_TRACKS = {"Cool Edge - Day": "00010_streaming", "Cool Edge - Day (Final Lap)": "00011_streaming"}
+BGM_JBM0016_TRACKS = {"Rooftop Run - Day": "00010_streaming", "Rooftop Run - Day (Final Lap)": "00011_streaming"}
+BGM_JBM0018_TRACKS = {"Dragon Road - Day": "00010_streaming", "Dragon Road - Day (Final Lap)": "00011_streaming"}
+BGM_JBM0020_TRACKS = {"Super Sonic vs. Perfect Dark Gaia": "00019_streaming", "Super Sonic vs. Perfect Dark Gaia (Final Lap)": "00020_streaming"}
+BGM_JBM0021_TRACKS = {"SKY SANCTUARY : ACT2 - Normal": "00019_streaming", "SKY SANCTUARY : ACT2 - Fast": "00020_streaming"}
+BGM_JBM0022_TRACKS = {"SEASIDE HILL: ACT2": "00019_streaming", "SEASIDE HILL: ACT2 (Final Lap)": "00020_streaming"}
+BGM_JBM0023_TRACKS = {"Windy Hill (Zone 1)": "00010_streaming", "Windy Hill (Zone 1) (Final Lap)": "00011_streaming"}
+BGM_JBM0024_TRACKS = {"Hidden World": "00019_streaming", "Hidden World (Final Lap)": "00020_streaming"}
+BGM_JBM0025_TRACKS = {"Studiopolis Zone Act 1": "00019_streaming", "Studiopolis Zone Act 1 (Final Lap)": "00020_streaming"}
+BGM_JBM0026_TRACKS = {"Stardust Speedway Zone Act 2": "00019_streaming", "Stardust Speedway Zone Act 2 (Final Lap)": "00020_streaming"}
+BGM_JBM0027_TRACKS = {"Metallic Madness Zone Act 2": "00019_streaming", "Metallic Madness Zone Act 2 (Final Lap)": "00020_streaming"}
+BGM_JBM0029_TRACKS = {"Fist Bump": "00019_streaming", "Fist Bump (Final Lap)": "00020_streaming"}
+BGM_JBM0030_TRACKS = {"Luminous Forest": "00010_streaming", "Luminous Forest (Final Lap)": "00011_streaming"}
+BGM_JBM0031_TRACKS = {"Sunset Heights": "00010_streaming", "Sunset Heights (Final Lap)": "00011_streaming"}
+BGM_JBM0028_TRACKS = {"Infinite": "00019_streaming", "Infinite (Final Lap)": "00020_streaming"}
+BGM_JBM0065_TRACKS = {"Ocean View: Lap Music": "00019_streaming", "Ocean View: Final Lap": "00020_streaming"}
+BGM_JBM0066_TRACKS = {"Roulette Road: Lap Music": "00019_streaming", "Roulette Road: Final Lap": "00020_streaming"}
+BGM_JBM0067_TRACKS = {"Sky Road: Lap Music": "00010_streaming", "Sky Road: Final Lap": "00011_streaming"}
+BGM_JBM0033_TRACKS = {"Tropical Resort Act 1 (Remix)": "00019_streaming", "Tropical Resort Act 1 (Remix) (Final Lap)": "00020_streaming"}
+BGM_JBM0035_TRACKS = {"Sweet Mountain Act 1 (Remix)": "00010_streaming", "Sweet Mountain Act 1 (Remix) (Final Lap)": "00011_streaming"}
+BGM_JBM0036_TRACKS = {"Starlight Carnival Act 1 (Remix)": "00010_streaming", "Starlight Carnival Act 1 (Remix) (Final Lap)": "00011_streaming"}
+BGM_JBM0034_TRACKS = {"Planet Wisp Act 1 (Remix)": "00019_streaming", "Planet Wisp Act 1 (Remix) (Final Lap)": "00020_streaming"}
+BGM_JBM0054_TRACKS = {"Title / Main Menu ~ Sonic World RMX": "00019_streaming", "Title / Main Menu ~ Sonic World RMX (Final Lap)": "00020_streaming"}
+BGM_JBM0038_TRACKS = {"I'm Here - Revisited": "00010_streaming", "I'm Here - Revisited (Final Lap)": "00011_streaming"}
+BGM_JBM0039_TRACKS = {"Cyber Space 1-2: Flowing": "00019_streaming", "Cyber Space 1-2: Flowing (Final Lap)": "00020_streaming"}
+BGM_JBM0040_TRACKS = {"Dropaholic": "00019_streaming", "Dropaholic (Final Lap)": "00020_streaming"}
+BGM_JBM0041_TRACKS = {"Undefeatable": "00019_streaming", "Undefeatable (Final Lap)": "00020_streaming"}
+BGM_JBM0037_TRACKS = {"Find Your Flame": "00019_streaming", "Find Your Flame (Final Lap)": "00020_streaming"}
+BGM_JBM0042_TRACKS = {"Bridge Island Zone Act 1": "00019_streaming", "Bridge Island Zone Act 1 (Final Lap)": "00020_streaming"}
+BGM_JBM0043_TRACKS = {"Speed Jungle Zone Act 1": "00019_streaming", "Speed Jungle Zone Act 1 (Final Lap)": "00020_streaming"}
+BGM_JBM0044_TRACKS = {"Sand Sanctuary Zone Act 1": "00019_streaming", "Sand Sanctuary Zone Act 1 (Final Lap)": "00020_streaming"}
+BGM_JBM0045_TRACKS = {"Boss Battle: Biolizard": "00019_streaming", "Boss Battle: Biolizard (Final Lap)": "00020_streaming"}
+BGM_JBM0046_TRACKS = {"Kingdom Valley: Act 1": "00019_streaming", "Kingdom Valley: Act 1 (Final Lap)": "00020_streaming"}
+BGM_JBM0047_TRACKS = {"Boss Battle: Mephiles Pt-II": "00019_streaming", "Boss Battle: Mephiles Pt-II (Final Lap)": "00020_streaming"}
+BGM_EXTND23_TRACKS = {"Get Higher": "00021_streaming", "Get Higher [for Final Lap]": "00022_streaming"}
+BGM_EXTND26_TRACKS = {"No.1": "00020_streaming", "No.1 [for Final Lap]": "00022_streaming"}
+BGM_EXTND27_TRACKS = {"Inugami Precious Moments": "00011_streaming", "Inugami Precious Moments [for Final Lap]": "00012_streaming"}
+BGM_BONUS01_TRACKS = {"Werehog Battle Theme": "00023_streaming", "Werehog Battle Theme (Alt)": "00025_streaming", "The World Adventure": "00021_streaming", "Werehog: Result": "00022_streaming", "Werehog: Ceremony": "00020_streaming"}
+BGM_BONUS02_TRACKS = {"Sonic Prime: Character Select": "00004_streaming", "Sonic Prime: Result": "00005_streaming", "Sonic Prime: Ceremony (Nine)": "00001_streaming", "Sonic Prime: Ceremony (Rusty Rose)": "00002_streaming", "Sonic Prime: Ceremony (Dread)": "00003_streaming"}
 
 # A map to easily get the correct dictionary for a given ACB stem
 SPECIAL_TRACK_MAP = {
@@ -362,24 +393,66 @@ SPECIAL_TRACK_MAP = {
     "SE_EXTND12_CHARA": None, # Will be populated dynamically
     "SE_EXTND15_CHARA": None, # Will be populated dynamically
     "SE_COURSE": None, # Will be populated dynamically
-    "UI_MusicJacket_04003": JUKEBOX_04003_TRACKS,
-    "UI_MusicJacket_04006": JUKEBOX_04006_TRACKS,
-    "UI_MusicJacket_04007": JUKEBOX_04007_TRACKS,
-    "UI_MusicJacket_04024": JUKEBOX_04024_TRACKS,
-    "UI_MusicJacket_04010": JUKEBOX_04010_TRACKS,
-    "UI_MusicJacket_04020": JUKEBOX_04020_TRACKS,
-    "UI_MusicJacket_04026": JUKEBOX_04026_TRACKS,
-    "UI_MusicJacket_04011": JUKEBOX_04011_TRACKS,
-    "UI_MusicJacket_04012": JUKEBOX_04012_TRACKS,
-    "UI_MusicJacket_04013": JUKEBOX_04013_TRACKS,
-    "UI_MusicJacket_04014": JUKEBOX_04014_TRACKS,
-    "UI_MusicJacket_04015": JUKEBOX_04015_TRACKS,
-    "UI_MusicJacket_04027": JUKEBOX_04027_TRACKS,
-    "UI_MusicJacket_04016": JUKEBOX_04016_TRACKS,
-    "UI_MusicJacket_04022": JUKEBOX_04022_TRACKS,
-    "UI_MusicJacket_04017": JUKEBOX_04017_TRACKS,
-    "UI_MusicJacket_04018": JUKEBOX_04018_TRACKS,
-    "UI_MusicJacket_04019": JUKEBOX_04019_TRACKS,
+    "BGM_JBM0002": BGM_JBM0002_TRACKS,
+    "BGM_JBM0003": BGM_JBM0003_TRACKS,
+    "BGM_JBM0004": BGM_JBM0004_TRACKS,
+    "BGM_JBM0005": BGM_JBM0005_TRACKS,
+    "BGM_JBM0009": BGM_JBM0009_TRACKS,
+    "BGM_JBM0008": BGM_JBM0008_TRACKS,
+    "BGM_JBM0010": BGM_JBM0010_TRACKS,
+    "BGM_JBM0007": BGM_JBM0007_TRACKS,
+    "BGM_JBM0006": BGM_JBM0006_TRACKS,
+    "BGM_JBM0061": BGM_JBM0061_TRACKS,
+    "BGM_JBM0062": BGM_JBM0062_TRACKS,
+    "BGM_JBM0015": BGM_JBM0015_TRACKS,
+    "BGM_JBM0011": BGM_JBM0011_TRACKS,
+    "BGM_JBM0012": BGM_JBM0012_TRACKS,
+    "BGM_JBM0013": BGM_JBM0013_TRACKS,
+    "BGM_JBM0014": BGM_JBM0014_TRACKS,
+    "BGM_JBM0051": BGM_JBM0051_TRACKS,
+    "BGM_JBM0052": BGM_JBM0052_TRACKS,
+    "BGM_JBM0053": BGM_JBM0053_TRACKS,
+    "BGM_JBM0064": BGM_JBM0064_TRACKS,
+    "BGM_JBM0017": BGM_JBM0017_TRACKS,
+    "BGM_JBM0019": BGM_JBM0019_TRACKS,
+    "BGM_JBM0016": BGM_JBM0016_TRACKS,
+    "BGM_JBM0018": BGM_JBM0018_TRACKS,
+    "BGM_JBM0020": BGM_JBM0020_TRACKS,
+    "BGM_JBM0021": BGM_JBM0021_TRACKS,
+    "BGM_JBM0022": BGM_JBM0022_TRACKS,
+    "BGM_JBM0023": BGM_JBM0023_TRACKS,
+    "BGM_JBM0024": BGM_JBM0024_TRACKS,
+    "BGM_JBM0025": BGM_JBM0025_TRACKS,
+    "BGM_JBM0026": BGM_JBM0026_TRACKS,
+    "BGM_JBM0027": BGM_JBM0027_TRACKS,
+    "BGM_JBM0029": BGM_JBM0029_TRACKS,
+    "BGM_JBM0030": BGM_JBM0030_TRACKS,
+    "BGM_JBM0031": BGM_JBM0031_TRACKS,
+    "BGM_JBM0028": BGM_JBM0028_TRACKS,
+    "BGM_JBM0065": BGM_JBM0065_TRACKS,
+    "BGM_JBM0066": BGM_JBM0066_TRACKS,
+    "BGM_JBM0067": BGM_JBM0067_TRACKS,
+    "BGM_JBM0033": BGM_JBM0033_TRACKS,
+    "BGM_JBM0035": BGM_JBM0035_TRACKS,
+    "BGM_JBM0036": BGM_JBM0036_TRACKS,
+    "BGM_JBM0034": BGM_JBM0034_TRACKS,
+    "BGM_JBM0054": BGM_JBM0054_TRACKS,
+    "BGM_JBM0038": BGM_JBM0038_TRACKS,
+    "BGM_JBM0039": BGM_JBM0039_TRACKS,
+    "BGM_JBM0040": BGM_JBM0040_TRACKS,
+    "BGM_JBM0041": BGM_JBM0041_TRACKS,
+    "BGM_JBM0037": BGM_JBM0037_TRACKS,
+    "BGM_JBM0042": BGM_JBM0042_TRACKS,
+    "BGM_JBM0043": BGM_JBM0043_TRACKS,
+    "BGM_JBM0044": BGM_JBM0044_TRACKS,
+    "BGM_JBM0045": BGM_JBM0045_TRACKS,
+    "BGM_JBM0046": BGM_JBM0046_TRACKS,
+    "BGM_JBM0047": BGM_JBM0047_TRACKS,
+    "BGM_EXTND23": BGM_EXTND23_TRACKS,
+    "BGM_EXTND26": BGM_EXTND26_TRACKS,
+    "BGM_EXTND27": BGM_EXTND27_TRACKS,
+    "BGM_BONUS01": BGM_BONUS01_TRACKS,
+    "BGM_BONUS02": BGM_BONUS02_TRACKS,
 }
 
 SE_COURSE_TRACKS = {
@@ -6074,19 +6147,33 @@ VOICE_ZAZ_TRACKS = {
 }
 
 JUKEBOX_ALBUMS = {
-    "UI_Albumjacket_03001": [
-        "UI_Albumjacket_03001"
+    "Sonic OST": [
+        "BGM_JBM0002", "BGM_JBM0003", "BGM_JBM0004", "BGM_JBM0005", "BGM_JBM0009",
+        "BGM_JBM0008", "BGM_JBM0010", "BGM_JBM0007", "BGM_JBM0006", "BGM_JBM0061",
+        "BGM_JBM0062", "BGM_JBM0015", "BGM_JBM0011", "BGM_JBM0012", "BGM_JBM0013",
+        "BGM_JBM0014", "BGM_JBM0051", "BGM_JBM0052", "BGM_JBM0053", "BGM_JBM0064",
+        "BGM_JBM0017", "BGM_JBM0019", "BGM_JBM0016", "BGM_JBM0018", "BGM_JBM0020",
+        "BGM_JBM0021", "BGM_JBM0022", "BGM_JBM0023", "BGM_JBM0024", "BGM_JBM0025",
+        "BGM_JBM0026", "BGM_JBM0027", "BGM_JBM0029", "BGM_JBM0030", "BGM_JBM0031",
+        "BGM_JBM0028", "BGM_JBM0065", "BGM_JBM0066", "BGM_JBM0067", "BGM_JBM0033",
+        "BGM_JBM0035", "BGM_JBM0036", "BGM_JBM0034", "BGM_JBM0054", "BGM_JBM0038",
+        "BGM_JBM0039", "BGM_JBM0040", "BGM_JBM0041", "BGM_JBM0037", "BGM_JBM0042",
+        "BGM_JBM0043", "BGM_JBM0044", "BGM_JBM0045", "BGM_JBM0046", "BGM_JBM0047"
     ],
-    "UI_Albumjacket_04001": [
-        "UI_MusicJacket_04003", "UI_MusicJacket_04006", "UI_MusicJacket_04007", 
-        "UI_MusicJacket_04024", "UI_MusicJacket_04010", "UI_MusicJacket_04020", 
-        "UI_MusicJacket_04026", "UI_MusicJacket_04011", "UI_MusicJacket_04012", 
-        "UI_MusicJacket_04013", "UI_MusicJacket_04014", "UI_MusicJacket_04015", 
-        "UI_MusicJacket_04027", "UI_MusicJacket_04016", "UI_MusicJacket_04022", 
-        "UI_MusicJacket_04017", "UI_MusicJacket_04018", "UI_MusicJacket_04019"
+    "Creepy Nuts": [
+        "BGM_EXTND23"
     ],
-    "UI_MusicJacket_05002": [
-        "UI_MusicJacket_05002"
+    "Crazy Raccoon": [
+        "BGM_EXTND26"
+    ],
+    "Inugami Korone": [
+        "BGM_EXTND27"
+    ],
+    "Werehog DLC": [
+        "BGM_BONUS01"
+    ],
+    "Sonic Prime DLC": [
+        "BGM_BONUS02"
     ]
 }
 
@@ -6099,6 +6186,9 @@ def _create_friendly_name_map():
     name_map.update({f"BGM_{k}": v for k, v in BGM_DATA["DLC Tracks"].items()})
     name_map.update({f"SE_{k}": v for k, v in BGM_DATA["Misc"].items()})
     name_map.update({f"VOICE_{k}": v for k, v in BGM_DATA["Voice Lines"].items()})
+
+    if "Jukebox" in BGM_DATA:
+        name_map.update({f"BGM_{k}": v for k, v in BGM_DATA["Jukebox"].items()})
 
     name_map.update({k: v for k, v in BGM_DATA["Menu & System"].items()})
     return name_map

@@ -366,7 +366,7 @@ class TrackEditorWidget(QFrame):
         self.gain_spinbox.setSuffix(" dB")
         self.gain_spinbox.setToolTip("Volume Adjustment (dB). Applied during conversion.")
         self.gain_spinbox.setValue(0.0)
-        self.gain_spinbox.setFixedWidth(80)
+        self.gain_spinbox.setFixedWidth(100)
         self.gain_spinbox.valueChanged.connect(self._update_playback_volume)
 
         self.cancel_autoloop_button = QPushButton("Cancel")
@@ -838,6 +838,26 @@ class TrackEditorWidget(QFrame):
     def emit_normalize_request(self):
         """Emits the normalize_requested signal with the current file path."""
         self.normalize_requested.emit(self.path_edit.text())
+
+class JukeboxTrackEditorWidget(TrackEditorWidget):
+    """A specialized TrackEditorWidget for Jukebox songs that includes an image."""
+    def __init__(self, label_text, image_path, show_loop_options=True, parent=None):
+        super().__init__(label_text, show_loop_options, parent)
+        
+        # Add image to the header
+        self.image_label = QLabel()
+        self.image_label.setFixedSize(96, 72) # 4:3 small thumbnail
+        self.image_label.setScaledContents(True)
+        self.image_label.setStyleSheet("background-color: #222; border: 1px solid #444; margin-right: 10px;")
+        
+        if image_path and Path(image_path).exists():
+            self.image_label.setPixmap(QPixmap(str(image_path)))
+        else:
+            self.image_label.setText("No Image")
+            self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            
+        # Insert at the beginning of the header layout (index 0)
+        self.header_frame.layout().insertWidget(0, self.image_label)
 
 class LogWindow(QMainWindow):
     """A secondary window for real-time logging."""
