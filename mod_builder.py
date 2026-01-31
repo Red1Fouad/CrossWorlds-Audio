@@ -406,10 +406,28 @@ class ModBuilderGUI(QMainWindow):
         1. Tries the direct path: tools/images/<category>/<acb_stem>.png
         2. If not found, performs a keyword search within all image subdirectories.
         """
+        # Special overrides for specific characters
+        filename_map = {
+            "SE_PRIME_CHARA": "sonicprime",
+            "SE_EXTND04_CHARA": "minecraft",
+            "SE_EXTND05_CHARA": "spongebob",
+            "SE_EXTND06_CHARA": "pacman",
+            "SE_EXTND14_CHARA": "aiai",
+            "SE_WER_CHARA": "werehog"
+        }
+        
+        search_filename = filename_map.get(acb_stem, acb_stem)
+
         # --- 1. Try the direct, fast path first ---
-        direct_path = TOOLS_DIR / "images" / image_folder / f"{acb_stem}.png"
+        direct_path = TOOLS_DIR / "images" / image_folder / f"{search_filename}.png"
         if direct_path.exists():
             return direct_path
+        
+        # If mapped, also try looking in a 'characters' folder if the default folder failed
+        if acb_stem in filename_map:
+             char_path = TOOLS_DIR / "images" / "characters" / f"{search_filename}.png"
+             if char_path.exists():
+                 return char_path
 
         # --- 2. If not found, perform a smarter keyword search ---
         # Build a cache of all image files on the first run
@@ -469,7 +487,7 @@ class ModBuilderGUI(QMainWindow):
             col, row = 0, 0
             for acb_stem, friendly_name in data.FRIENDLY_NAME_MAP.items():
                 # Special handling for menus to avoid including stages
-                if prefix == "BGM" and (acb_stem.startswith("BGM_STG") or acb_stem.startswith("BGM_EXTND")):
+                if prefix == "BGM" and (acb_stem.startswith("BGM_STG") or acb_stem.startswith("BGM_EXTND") or acb_stem.startswith("BGM_JBM") or acb_stem.startswith("BGM_BONUS")):
                     continue
                 
                 # Special handling for guest characters to ensure they only appear in the Misc tab.
@@ -477,8 +495,8 @@ class ModBuilderGUI(QMainWindow):
                 if (tab_name == "Voices" and is_guest_char):
                     continue
 
-                # Exclude character music packs from DLC Stages tab (they are accessed via Misc -> Character)
-                if prefix == "BGM_EXTND" and acb_stem in ["BGM_EXTND10", "BGM_EXTND11", "BGM_EXTND12", "BGM_EXTND15"]:
+                # Only allow specific DLC stages in the DLC Stages tab (exclude character packs and jukebox songs)
+                if prefix == "BGM_EXTND" and acb_stem not in ["BGM_EXTND04", "BGM_EXTND05", "BGM_EXTND06"]:
                     continue
 
                 if acb_stem.startswith(prefix):
@@ -1149,6 +1167,9 @@ class ModBuilderGUI(QMainWindow):
             is_voice_acb = True # Treat her like a voice ACB for UI purposes
         elif acb_stem == "SE_EXTND15_CHARA": # NiGHTS
             track_dict = data.VOICE_EXTND15_CHARA_TRACKS
+            is_voice_acb = True
+        elif acb_stem in ["SE_WER_CHARA", "SE_PRIME_CHARA", "SE_EXTND04_CHARA", "SE_EXTND05_CHARA", "SE_EXTND06_CHARA", "SE_EXTND14_CHARA"]:
+            track_dict = data.SPECIAL_TRACK_MAP[acb_stem]
             is_voice_acb = True
         elif acb_stem == "BGM_EXTND04": # Minecraft uses its own full dictionary
             track_dict = data.DLC_MINECRAFT_TRACKS
