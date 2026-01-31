@@ -125,6 +125,49 @@ class ImageCard(QFrame):
             self.clicked.emit(self.acb_stem, self.friendly_name)
         super().mousePressEvent(event)
 
+class JukeboxTrackItem(QFrame):
+    """A list item widget with an image on the left and text on the right."""
+    clicked = Signal(str, str)  # acb_stem, friendly_name
+
+    def __init__(self, acb_stem, friendly_name, image_path, parent=None):
+        super().__init__(parent)
+        self.acb_stem = acb_stem
+        self.friendly_name = friendly_name
+
+        self.setFrameShape(QFrame.Shape.StyledPanel)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setMinimumHeight(80)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(5, 5, 5, 5)
+        layout.setSpacing(10)
+
+        # Image Label
+        self.image_label = QLabel()
+        self.image_label.setFixedSize(96, 72) # 4:3
+        self.image_label.setStyleSheet("background-color: #222; border: 1px solid #444;")
+        self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        pixmap = QPixmap(str(image_path))
+        if pixmap.isNull():
+            self.image_label.setText("No Image")
+        else:
+            self.image_label.setPixmap(pixmap.scaled(
+                self.image_label.size(), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation
+            ))
+        layout.addWidget(self.image_label)
+
+        # Title Label
+        self.title_label = QLabel(friendly_name)
+        self.title_label.setWordWrap(True)
+        self.title_label.setStyleSheet("font-weight: bold;")
+        layout.addWidget(self.title_label, 1)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.clicked.emit(self.acb_stem, self.friendly_name)
+        super().mousePressEvent(event)
+
 class LoopSlider(QSlider):
     def __init__(self, orientation, parent=None):
         super().__init__(orientation, parent)

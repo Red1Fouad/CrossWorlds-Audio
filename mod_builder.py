@@ -10,7 +10,7 @@ import wave
 try:
     from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel, QLineEdit,
                                    QPushButton, QFileDialog, QMessageBox, QTreeWidget, QTreeWidgetItem, QTabWidget, QGridLayout, QSplashScreen,
-                                   QScrollArea, QFrame, QMenuBar, QStatusBar, QProgressBar, QDoubleSpinBox)
+                                   QScrollArea, QFrame, QMenuBar, QStatusBar, QProgressBar, QDoubleSpinBox, QStackedWidget)
     from PySide6.QtCore import Qt, QThread, Signal, QObject, QTimer
     from PySide6.QtGui import QDesktopServices, QShortcut, QKeySequence, QIcon, QPixmap
     from PySide6.QtCore import QUrl
@@ -19,7 +19,7 @@ except ImportError:
     sys.exit(1)
 
 import data
-from ui_components import BGMSelectorWindow, ImageCard, TrackEditorWidget, SettingsDialog, LogWindow, ProgressLogDialog
+from ui_components import BGMSelectorWindow, ImageCard, TrackEditorWidget, SettingsDialog, LogWindow, ProgressLogDialog, JukeboxTrackItem
 from volume_logic import normalize_audio_file
 from mod_logic import ModLogic
 
@@ -437,6 +437,64 @@ class ModBuilderGUI(QMainWindow):
                         col = 0
                         row += 1
 
+        # --- Jukebox Tab ---
+        jukebox_tab = QWidget()
+        jukebox_layout = QVBoxLayout(jukebox_tab)
+        
+        # We need a stack to switch between Albums view and Tracks view
+        self.jukebox_stack = QStackedWidget()
+        jukebox_layout.addWidget(self.jukebox_stack)
+        
+        # Page 1: Albums
+        albums_page = QWidget()
+        albums_layout = QVBoxLayout(albums_page)
+        albums_scroll = QScrollArea()
+        albums_scroll.setWidgetResizable(True)
+        albums_content = QWidget()
+        self.albums_grid = QGridLayout(albums_content)
+        self.albums_grid.setSpacing(15)
+        albums_scroll.setWidget(albums_content)
+        albums_layout.addWidget(albums_scroll)
+        self.jukebox_stack.addWidget(albums_page)
+        
+        # Page 2: Tracks (Dynamic)
+        tracks_page = QWidget()
+        tracks_layout = QVBoxLayout(tracks_page)
+        
+        # Back Button for Tracks Page
+        back_btn = QPushButton("⬅ Back to Albums")
+        back_btn.clicked.connect(lambda: self.jukebox_stack.setCurrentIndex(0))
+        tracks_layout.addWidget(back_btn, 0, Qt.AlignmentFlag.AlignLeft)
+        
+        # Split View for Tracks Page
+        split_widget = QWidget()
+        split_layout = QHBoxLayout(split_widget)
+        tracks_layout.addWidget(split_widget)
+
+        # Left: Album Jacket
+        self.album_jacket_label = QLabel()
+        self.album_jacket_label.setFixedSize(320, 240) # 4:3 Aspect Ratio
+        self.album_jacket_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.album_jacket_label.setStyleSheet("background-color: #222; border: 1px solid #444;")
+        split_layout.addWidget(self.album_jacket_label, 0, Qt.AlignmentFlag.AlignTop)
+
+        # Right: Track List
+        tracks_scroll = QScrollArea()
+        tracks_scroll.setWidgetResizable(True)
+        self.tracks_content = QWidget()
+        self.tracks_list_layout = QVBoxLayout(self.tracks_content)
+        self.tracks_list_layout.setSpacing(5)
+        self.tracks_list_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        tracks_scroll.setWidget(self.tracks_content)
+        split_layout.addWidget(tracks_scroll, 1)
+        
+        self.jukebox_stack.addWidget(tracks_page)
+        
+        tab_widget.addTab(jukebox_tab, "Jukebox")
+        
+        # Populate Albums
+        self._populate_jukebox_albums()
+
     def _create_editor_screen(self, main_layout):
         """Creates the main editor widgets (Steps 1-3), initially hidden."""
         # Top Navigation Bar
@@ -661,6 +719,62 @@ class ModBuilderGUI(QMainWindow):
         self.transition_short_track_vars.loop_checkbox.setChecked(self.transition_track_vars.loop_checkbox.isChecked())
         self.transition_short_track_vars.loop_start_edit.setText(self.transition_track_vars.loop_start_edit.text())
         self.transition_short_track_vars.loop_end_edit.setText(self.transition_track_vars.loop_end_edit.text())
+
+    def _populate_jukebox_albums(self):
+        """Populates the albums grid in the Jukebox tab."""
+        self._clear_layout(self.albums_grid)
+        
+        col, row = 0, 0
+        for album_key in data.JUKEBOX_ALBUMS.keys():
+            friendly_name = album_key 
+            image_path = self._find_image_path(album_key, friendly_name, "jukebox/main")
+            
+            card = ImageCard(album_key, friendly_name, image_path)
+            card.clicked.connect(self.on_jukebox_album_selected)
+            self.albums_grid.addWidget(card, row, col)
+            col += 1
+            if col >= 5:
+                col = 0
+                row += 1
+
+    def on_jukebox_album_selected(self, album_key, friendly_name):
+        """Handles clicking an album card."""
+        self._populate_jukebox_tracks(album_key)
+        self.jukebox_stack.setCurrentIndex(1) # Switch to tracks page
+
+    def _populate_jukebox_tracks(self, album_key):
+        """Populates the tracks list for a selected album."""
+        self._clear_layout(self.tracks_list_layout)
+        
+        # Set Album Jacket
+        friendly_name = album_key 
+        image_path = self._find_image_path(album_key, friendly_name, "jukebox/main")
+        if image_path and Path(image_path).exists():
+            pixmap = QPixmap(str(image_path))
+            self.album_jacket_label.setPixmap(pixmap.scaled(self.album_jacket_label.size(), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        else:
+            self.album_jacket_label.clear()
+            self.album_jacket_label.setText("No Image")
+        
+        tracks = data.JUKEBOX_ALBUMS.get(album_key, [])
+        for track_key in tracks:
+            # Find image for the track
+            track_image_path = self._find_image_path(track_key, track_key, "jukebox/main")
+            
+            # Determine friendly name from the tracks inside the ACB
+            track_dict = data.SPECIAL_TRACK_MAP.get(track_key)
+            if track_dict:
+                for song_title in track_dict.keys():
+                    display_title = song_title.replace("(Final Lap)", ": Final Lap")
+                    # Create custom list item for each song
+                    item = JukeboxTrackItem(track_key, display_title, track_image_path)
+                    item.clicked.connect(self.on_card_selected)
+                    self.tracks_list_layout.addWidget(item)
+            else:
+                # Fallback if no track dict found
+                item = JukeboxTrackItem(track_key, track_key, track_image_path)
+                item.clicked.connect(self.on_card_selected)
+                self.tracks_list_layout.addWidget(item)
 
     def on_card_selected(self, acb_stem, friendly_name):
         """Handles the click event from an ImageCard."""
@@ -986,6 +1100,7 @@ class ModBuilderGUI(QMainWindow):
 
         show_loops = not is_voice_acb # No loops for voice lines
         for label, hca_name in track_dict.items():
+            label = label.replace("(Final Lap)", ": Final Lap")
             can_loop = show_loops
             if acb_stem == "BGM":
                 # Check if the track is one of the newly added ones
