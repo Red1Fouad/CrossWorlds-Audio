@@ -1330,6 +1330,8 @@ class ModBuilderGUI(QMainWindow):
             if mode == 'all':
                 if target.loop_checkbox and source_widget.loop_checkbox:
                     target.loop_checkbox.setChecked(source_widget.loop_checkbox.isChecked())
+                if target.loop_unit_combo and source_widget.loop_unit_combo:
+                    target.loop_unit_combo.setCurrentIndex(source_widget.loop_unit_combo.currentIndex())
                 if target.loop_start_edit and source_widget.loop_start_edit:
                     target.loop_start_edit.setText(source_widget.loop_start_edit.text())
                 if target.loop_end_edit and source_widget.loop_end_edit:
@@ -1713,26 +1715,15 @@ class ModBuilderGUI(QMainWindow):
             for hca_name, var_dict in self.special_track_vars.items():
                 if var_dict.path_edit.text():
                     is_looping = var_dict.loop_checkbox and var_dict.loop_checkbox.isChecked()
-                    start_widget = var_dict.loop_start_edit
-                    end_widget = var_dict.loop_end_edit
-                    start_text = start_widget.text() if start_widget else ""
-                    end_text = end_widget.text() if end_widget else ""
+                    start_samp, end_samp = var_dict.get_loop_points_samples()
                     gain_db = var_dict.gain_spinbox.value()
 
-                    tasks.append((hca_name, var_dict.path_edit.text(), is_looping, start_text, end_text, gain_db))
+                    tasks.append((hca_name, var_dict.path_edit.text(), is_looping, str(start_samp), str(end_samp), gain_db))
         else: # Stage music
-            if self.intro_track_vars.path_edit.text():
-                tasks.append(("intro", self.intro_track_vars.path_edit.text(), self.intro_track_vars.loop_checkbox.isChecked(), self.intro_track_vars.loop_start_edit.text(), self.intro_track_vars.loop_end_edit.text(), self.intro_track_vars.gain_spinbox.value()))
-            if self.lap1_track_vars.path_edit.text():
-                tasks.append(("lap1", self.lap1_track_vars.path_edit.text(), self.lap1_track_vars.loop_checkbox.isChecked(), self.lap1_track_vars.loop_start_edit.text(), self.lap1_track_vars.loop_end_edit.text(), self.lap1_track_vars.gain_spinbox.value()))
-            if self.final_lap_track_vars.path_edit.text():
-                tasks.append(("final_lap", self.final_lap_track_vars.path_edit.text(), self.final_lap_track_vars.loop_checkbox.isChecked(), self.final_lap_track_vars.loop_start_edit.text(), self.final_lap_track_vars.loop_end_edit.text(), self.final_lap_track_vars.gain_spinbox.value()))
-            if self.transition_track_vars.path_edit.text():
-                tasks.append(("transition", self.transition_track_vars.path_edit.text(), self.transition_track_vars.loop_checkbox.isChecked(), self.transition_track_vars.loop_start_edit.text(), self.transition_track_vars.loop_end_edit.text(), self.transition_track_vars.gain_spinbox.value()))
-            if self.transition_short_track_vars.path_edit.text():
-                tasks.append(("transition_short", self.transition_short_track_vars.path_edit.text(), self.transition_short_track_vars.loop_checkbox.isChecked(), self.transition_short_track_vars.loop_start_edit.text(), self.transition_short_track_vars.loop_end_edit.text(), self.transition_short_track_vars.gain_spinbox.value()))
-            if self.announce_track_vars.path_edit.text():
-                tasks.append(("announce", self.announce_track_vars.path_edit.text(), self.announce_track_vars.loop_checkbox.isChecked(), self.announce_track_vars.loop_start_edit.text(), self.announce_track_vars.loop_end_edit.text(), self.announce_track_vars.gain_spinbox.value()))
+            for name, editor in [("intro", self.intro_track_vars), ("lap1", self.lap1_track_vars), ("final_lap", self.final_lap_track_vars), ("transition", self.transition_track_vars), ("transition_short", self.transition_short_track_vars), ("announce", self.announce_track_vars)]:
+                if editor.path_edit.text():
+                    start_samp, end_samp = editor.get_loop_points_samples()
+                    tasks.append((name, editor.path_edit.text(), editor.loop_checkbox.isChecked(), str(start_samp), str(end_samp), editor.gain_spinbox.value()))
         
         # Validate loop points for commas
         for name, _, is_looping, start, end, _ in tasks:
@@ -1839,6 +1830,7 @@ class ModBuilderGUI(QMainWindow):
                 "loop_enabled": editor.loop_checkbox.isChecked() if editor.loop_checkbox else False,
                 "loop_start": editor.loop_start_edit.text() if editor.loop_start_edit else "",
                 "loop_end": editor.loop_end_edit.text() if editor.loop_end_edit else "",
+                "loop_unit": editor.loop_unit_combo.currentIndex() if editor.loop_unit_combo else 0,
                 "gain_db": editor.gain_spinbox.value() if editor.gain_spinbox else 0.0
             }
             state[editor.original_label_text] = track_data
@@ -1857,6 +1849,8 @@ class ModBuilderGUI(QMainWindow):
                 editor.path_edit.setText(data.get("path", ""))
                 if editor.loop_checkbox:
                     editor.loop_checkbox.setChecked(data.get("loop_enabled", False))
+                if editor.loop_unit_combo:
+                    editor.loop_unit_combo.setCurrentIndex(data.get("loop_unit", 0))
                 if editor.loop_start_edit:
                     editor.loop_start_edit.setText(data.get("loop_start", ""))
                 if editor.loop_end_edit:

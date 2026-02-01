@@ -8,7 +8,7 @@ try:
     from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel, QLineEdit,
                                    QPushButton, QFileDialog, QMessageBox, QTreeWidget, QTreeWidgetItem, QScrollArea,
                                    QFrame, QMenuBar, QStatusBar, QTabWidget, QGridLayout, QSizePolicy, QDialog,
-                                   QDialogButtonBox, QCheckBox, QSlider, QStyleOptionSlider, QStyle, QProgressBar, QDoubleSpinBox,
+                                   QDialogButtonBox, QCheckBox, QSlider, QStyleOptionSlider, QStyle, QProgressBar, QDoubleSpinBox, QComboBox,
                                    QPlainTextEdit, QMenu)
     from PySide6.QtCore import Qt, QThread, Signal, QObject, QTimer, QSize, QRect
     from PySide6.QtGui import QDesktopServices, QShortcut, QKeySequence, QIcon, QPixmap, QPainter, QColor, QTextCursor, QFont
@@ -234,6 +234,8 @@ class TrackEditorWidget(QFrame):
         self.loop_start_edit = None
         self.loop_end_edit = None
         self.gain_spinbox = None
+        self.loop_unit_combo = None
+        self._last_loop_unit_index = 0
         self._last_filepath = None # To prevent re-scanning the same file
         self._sample_rate = 0 # For loop point conversion
         self.playback_mode = None # 'normal' or 'loop'
@@ -391,9 +393,16 @@ class TrackEditorWidget(QFrame):
             loop_layout = QHBoxLayout(self.loop_widget)
             loop_layout.setContentsMargins(0, 5, 0, 0)
 
-            self.loop_checkbox = QCheckBox("Enable Loop Points (samples)")
+            self.loop_checkbox = QCheckBox("Enable Loop Points")
             self.loop_checkbox.toggled.connect(self._toggle_loop_edits_enabled)
             loop_layout.addWidget(self.loop_checkbox)
+
+            self.loop_unit_combo = QComboBox()
+            self.loop_unit_combo.addItems(["Samples", "Time"])
+            self.loop_unit_combo.setToolTip("Select unit for loop points")
+            self.loop_unit_combo.currentIndexChanged.connect(self._on_loop_unit_changed)
+            self.loop_unit_combo.setFixedWidth(80)
+            loop_layout.addWidget(self.loop_unit_combo)
 
             loop_layout.addStretch()
             loop_layout.addWidget(QLabel("Start:"))
@@ -444,6 +453,74 @@ class TrackEditorWidget(QFrame):
             self.apply_to_all_requested.emit(self, 'gain')
         elif action == action_all:
             self.apply_to_all_requested.emit(self, 'all')
+
+    def _samples_to_time_str(self, samples):
+        if self._sample_rate <= 0: return "00:00.000"
+        seconds = samples / self._sample_rate
+        minutes = int(seconds // 60)
+        rem_seconds = seconds % 60
+        return f"{minutes:02d}:{rem_seconds:06.3f}"
+
+    def _parse_time_to_samples(self, time_str):
+        if self._sample_rate <= 0: return 0
+        try:
+            parts = time_str.split(':')
+            total_seconds = 0.0
+            if len(parts) == 2:
+                total_seconds = float(parts[0]) * 60 + float(parts[1])
+            elif len(parts) == 1:
+                total_seconds = float(parts[0])
+            return int(total_seconds * self._sample_rate)
+        except ValueError:
+            return 0
+
+    def _on_loop_unit_changed(self, index):
+        if self._sample_rate <= 0:
+            self._last_loop_unit_index = index
+            return
+
+        try:
+            start_text = self.loop_start_edit.text()
+            end_text = self.loop_end_edit.text()
+            
+            start_val = 0
+            end_val = 0
+
+            # Convert FROM previous unit to Samples
+            if self._last_loop_unit_index == 0: # Was Samples
+                start_val = int(start_text) if start_text.strip() else 0
+                end_val = int(end_text) if end_text.strip() else 0
+            else: # Was Time
+                start_val = self._parse_time_to_samples(start_text)
+                end_val = self._parse_time_to_samples(end_text)
+
+            # Convert TO new unit
+            if index == 0: # Target is Samples
+                self.loop_start_edit.setText(str(start_val))
+                self.loop_end_edit.setText(str(end_val))
+            else: # Target is Time
+                self.loop_start_edit.setText(self._samples_to_time_str(start_val))
+                self.loop_end_edit.setText(self._samples_to_time_str(end_val))
+        except ValueError:
+            pass # Ignore parsing errors
+        
+        self._last_loop_unit_index = index
+
+    def get_loop_points_samples(self):
+        """Returns loop start and end as integers (samples)."""
+        if not self.loop_start_edit or not self.loop_end_edit:
+            return 0, 0
+            
+        start_text = self.loop_start_edit.text()
+        end_text = self.loop_end_edit.text()
+        
+        if self.loop_unit_combo and self.loop_unit_combo.currentIndex() == 1: # Time
+            return self._parse_time_to_samples(start_text), self._parse_time_to_samples(end_text)
+        else: # Samples
+            try:
+                return int(start_text) if start_text.strip() else 0, int(end_text) if end_text.strip() else 0
+            except ValueError:
+                return 0, 0
 
     def _format_time(self, ms):
         """Formats milliseconds into MM:SS."""
@@ -496,8 +573,12 @@ class TrackEditorWidget(QFrame):
                                 loop_end = struct.unpack('<I', smpl_data[48:52])[0]
                                 
                                 self.loop_checkbox.setChecked(True)
-                                self.loop_start_edit.setText(str(loop_start))
-                                self.loop_end_edit.setText(str(loop_end))
+                                if self.loop_unit_combo and self.loop_unit_combo.currentIndex() == 1:
+                                    self.loop_start_edit.setText(self._samples_to_time_str(loop_start))
+                                    self.loop_end_edit.setText(self._samples_to_time_str(loop_end))
+                                else:
+                                    self.loop_start_edit.setText(str(loop_start))
+                                    self.loop_end_edit.setText(str(loop_end))
                                 print(f"Auto-detected loop points for {Path(filepath).name}: {loop_start}-{loop_end}")
                         return # Found smpl, stop scanning
                     else:
@@ -594,8 +675,7 @@ class TrackEditorWidget(QFrame):
             self._last_filepath = filepath
             
             # Get sample rate for loop conversion
-            if MULTIMEDIA_AVAILABLE:
-                self._sample_rate = self._get_sample_rate(filepath)
+            self._sample_rate = self._get_sample_rate(filepath)
 
             if self.loop_checkbox and Path(filepath).suffix.lower() == '.wav':
                 self._try_load_loop_points(filepath)
@@ -627,8 +707,12 @@ class TrackEditorWidget(QFrame):
             best_loop = loop_points[0]
             loop_start, loop_end = best_loop[0], best_loop[1]
             self.loop_checkbox.setChecked(True)
-            self.loop_start_edit.setText(str(loop_start))
-            self.loop_end_edit.setText(str(loop_end))
+            if self.loop_unit_combo and self.loop_unit_combo.currentIndex() == 1:
+                self.loop_start_edit.setText(self._samples_to_time_str(loop_start))
+                self.loop_end_edit.setText(self._samples_to_time_str(loop_end))
+            else:
+                self.loop_start_edit.setText(str(loop_start))
+                self.loop_end_edit.setText(str(loop_end))
 
     def _init_player(self):
         self.player = QMediaPlayer()
@@ -688,8 +772,7 @@ class TrackEditorWidget(QFrame):
         else:
             # Validate loop points before starting
             try:
-                start_sample = int(self.loop_start_edit.text())
-                end_sample = int(self.loop_end_edit.text())
+                start_sample, end_sample = self.get_loop_points_samples()
                 if start_sample < 0 or end_sample <= start_sample:
                     if end_sample <= start_sample:
                         QMessageBox.warning(self, "Invalid Loop Points", "Loop End must be greater than Loop Start.")
@@ -707,8 +790,7 @@ class TrackEditorWidget(QFrame):
                 
                 # Update slider visualization
                 try:
-                    start_samples = int(self.loop_start_edit.text())
-                    end_samples = int(self.loop_end_edit.text())
+                    start_samples, end_samples = self.get_loop_points_samples()
                     start_ms = int((start_samples / self._sample_rate) * 1000)
                     end_ms = int((end_samples / self._sample_rate) * 1000)
                     self.playback_slider.set_loop_points(start_ms, end_ms)
@@ -754,7 +836,7 @@ class TrackEditorWidget(QFrame):
             # Check if we hit the end of the file while in loop mode
             if self.playback_mode == 'loop' and not self._manual_stop:
                 try:
-                    start_samples = int(self.loop_start_edit.text())
+                    start_samples, _ = self.get_loop_points_samples()
                     if self._sample_rate > 0:
                         start_ms = int((start_samples / self._sample_rate) * 1000)
                         self.player.setPosition(start_ms)
@@ -781,8 +863,7 @@ class TrackEditorWidget(QFrame):
         if self.playback_mode == 'loop' and self._sample_rate > 0 and self.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
             try:
                 position = self.player.position()
-                start_samples = int(self.loop_start_edit.text())
-                end_samples = int(self.loop_end_edit.text())
+                start_samples, end_samples = self.get_loop_points_samples()
                 
                 start_ms = int((start_samples / self._sample_rate) * 1000)
                 end_ms = int((end_samples / self._sample_rate) * 1000)
