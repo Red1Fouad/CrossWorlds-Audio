@@ -1625,6 +1625,23 @@ class ModBuilderGUI(QMainWindow):
 
     def unpack_acb(self):
         acb_path = Path(self._acb_file)
+        
+        # Check for missing AWB file for types that typically require it
+        awb_path = acb_path.with_suffix(".awb")
+        if not awb_path.exists():
+            stem = acb_path.stem
+            if stem.startswith("BGM") or stem.startswith("VOICE") or stem.startswith("SE_"):
+                reply = QMessageBox.warning(self, "Missing AWB File", 
+                    f"The file '{awb_path.name}' was not found in the same folder as the ACB file.\n\n"
+                    "Most audio files in this game require a paired .awb file to be unpacked correctly.\n"
+                    "Without it, the unpacker (ACB Editor) is likely to crash.\n\n"
+                    "Do you want to try unpacking anyway?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                
+                if reply == QMessageBox.StandardButton.No:
+                    self.reset_ui_state()
+                    return
+
         print(f"--- Step 1: Unpacking '{acb_path.name}' ---")
         self.update_status_bar.emit(f"Unpacking '{acb_path.name}'...", 0)
         self.unpack_button.setEnabled(False)

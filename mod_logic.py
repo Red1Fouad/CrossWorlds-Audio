@@ -176,6 +176,12 @@ class ModLogic:
             temp_acb = temp_dir / original_acb.name
             shutil.copy2(original_acb, temp_acb)
             
+            # Copy original AWB to temp if it exists (Required for valid XML generation of existing tracks)
+            original_awb = original_acb.with_suffix('.awb')
+            if original_awb.exists():
+                print(f"Copying original AWB for reference: {original_awb.name}")
+                shutil.copy2(original_awb, temp_dir / original_awb.name)
+            
             # Extract XML
             self._execute_command([str(self.CRI_UTF_TOOL), temp_acb.name], False, cwd=str(temp_dir))
             
