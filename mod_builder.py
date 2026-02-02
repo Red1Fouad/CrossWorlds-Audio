@@ -1461,8 +1461,10 @@ class ModBuilderGUI(QMainWindow):
             if getattr(sys, 'frozen', False):
                 QMessageBox.warning(self, "Dependency Missing",
                                       "The 'Auto-Loop' feature requires 'pymusiclooper'.\n\n"
-                                      "Since you are using the packaged version, please install it manually by opening a command prompt and running:\n\n"
-                                      "pip install pymusiclooper")
+                                      "Since you are using the packaged version, please install it manually by opening a command prompt and running:\n"
+                                      "pip install pymusiclooper\n\n"
+                                      "Note: You need Python 3.14 or higher installed on your system.\n"
+                                      "Download: https://www.python.org/downloads/release/python-3142/")
                 editor_widget.on_autoloop_finished(None)
                 return
 
