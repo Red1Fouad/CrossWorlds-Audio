@@ -4,6 +4,8 @@ import subprocess
 import shlex
 import shutil
 from pathlib import Path
+import xml.etree.ElementTree as ET
+import re
 
 class ModLogic:
     def __init__(self, tools_dir, output_dir):
@@ -154,7 +156,132 @@ class ModLogic:
     def repack_acb(self, unpacked_path):
         self._execute_command([str(self.ACB_EDITOR), str(unpacked_path)], False, cwd=None)
 
-    def create_pak(self, mod_name, acb_file_path):
+    def repack_acb_kwastools(self, original_acb_path, replacement_map, unpacked_folder_str):
+        """
+        Repacks the ACB using the KwasTools XML injection method.
+        """
+        original_acb = Path(original_acb_path)
+        unpacked_folder = Path(unpacked_folder_str)
+        
+        # The output ACB should replace the one that AcbEditor would have created/modified.
+        target_acb = unpacked_folder.parent / (unpacked_folder.name + ".acb")
+        
+        # Create a temp directory for work
+        temp_dir = unpacked_folder.parent / "temp_kwastools"
+        if temp_dir.exists(): shutil.rmtree(temp_dir)
+        temp_dir.mkdir()
+        
+        try:
+            # Copy original ACB to temp
+            temp_acb = temp_dir / original_acb.name
+            shutil.copy2(original_acb, temp_acb)
+            
+            # Extract XML
+            self._execute_command([str(self.CRI_UTF_TOOL), temp_acb.name], False, cwd=str(temp_dir))
+            
+            xml_file = temp_acb.with_suffix('.acb.xml')
+            if not xml_file.exists():
+                raise FileNotFoundError("Failed to extract XML from ACB.")
+                
+            tree = ET.parse(xml_file)
+            root = tree.getroot()
+            
+            # Find StreamAwbTocWorkOld -> AWB
+            awb_node = None
+            for record in root.iter('record'):
+                if record.get('name') == 'StreamAwbTocWorkOld':
+                    awb_node = record.find('AWB')
+                    break
+            
+            if awb_node is None:
+                # Fallback: search for AWB anywhere
+                awb_node = root.find('.//AWB')
+            
+            if awb_node is None:
+                raise ValueError("Could not find <AWB> tag in ACB XML.")
+                
+            # --- MEMORIZE & PRUNE LOGIC ---
+            entries = awb_node.findall('entry')
+            count_file = original_acb.with_suffix('.kwas_orig_count')
+            
+            original_count = 0
+            if not count_file.exists():
+                original_count = len(entries)
+                try:
+                    with open(count_file, 'w') as f:
+                        f.write(str(original_count))
+                    print(f"Memorized original entry count: {original_count}")
+                except Exception as e:
+                    print(f"Warning: Could not save original count: {e}")
+            else:
+                try:
+                    with open(count_file, 'r') as f:
+                        original_count = int(f.read().strip())
+                    print(f"Loaded original entry count: {original_count}")
+                except Exception as e:
+                    print(f"Warning: Could not read original count: {e}")
+                    original_count = len(entries)
+
+            # Prune entries beyond original_count
+            if len(entries) > original_count:
+                entries_to_remove = entries[original_count:]
+                print(f"Pruning {len(entries_to_remove)} entries beyond original count...")
+                for e in entries_to_remove:
+                    awb_node.remove(e)
+                
+                # Note: We don't strictly need to revert rows here because any row pointing 
+                # to a removed entry will either be updated by the new replacements below, 
+                # or is effectively broken/reset (which is expected if we removed the track).
+
+            # Determine new ID start
+            existing_ids = [int(e.get('id')) for e in awb_node.findall('entry')]
+            next_id = max(existing_ids) + 1 if existing_ids else 1000
+            
+            # Process replacements
+            for orig_filename, new_filename in replacement_map.items():
+                stem = Path(orig_filename).stem
+                # Remove _streaming suffix if present
+                if "_streaming" in stem:
+                    stem = stem.replace("_streaming", "")
+                
+                # Try to extract number
+                match = re.search(r'^(\d+)', stem)
+                if not match:
+                    print(f"Skipping {orig_filename}: filename does not start with an ID.")
+                    continue
+                
+                track_id = int(match.group(1))
+                new_file_abs_path = (self.OUTPUT_DIR / new_filename).resolve()
+                
+                # Add entry to AWB
+                new_entry = ET.SubElement(awb_node, 'entry')
+                new_entry.set('id', str(next_id))
+                new_entry.set('path', str(new_file_abs_path).replace('\\', '/'))
+                
+                # Update row for this track_id
+                for row in root.findall('.//row'):
+                    recs = {r.get('name'): r for r in row.findall('record')}
+                    if 'StreamAwbId' in recs and recs['StreamAwbId'].get('value') == str(track_id):
+                        if 'MemoryAwbId' in recs:
+                            recs['MemoryAwbId'].set('value', str(next_id))
+                        if 'Streaming' in recs:
+                            recs['Streaming'].set('value', '0')
+                
+                next_id += 1
+                
+            # Save XML and Repack
+            tree.write(xml_file, encoding='utf-8', xml_declaration=False)
+            self._execute_command([str(self.CRI_UTF_TOOL), xml_file.name], False, cwd=str(temp_dir))
+            
+            if target_acb.exists(): target_acb.unlink()
+            shutil.copy2(temp_acb, target_acb)
+            
+        finally:
+            if temp_dir.exists():
+                try: shutil.rmtree(temp_dir)
+                except: pass
+
+    def create_pak(self, mod_name, acb_file_path, include_awb=True):
         mod_root_folder = Path(mod_name)
         criware_folder = mod_root_folder / "UNION" / "Content" / "CriWareData"
 
@@ -164,10 +291,11 @@ class ModLogic:
         print(f"Copying '{acb_path.name}' to mod folder...")
         shutil.copy2(acb_path, criware_folder)
 
-        awb_file = acb_path.with_suffix('.awb')
-        if awb_file.exists():
-            print(f"Copying '{awb_file.name}' to mod folder...")
-            shutil.copy2(awb_file, criware_folder)
+        if include_awb:
+            awb_file = acb_path.with_suffix('.awb')
+            if awb_file.exists():
+                print(f"Copying '{awb_file.name}' to mod folder...")
+                shutil.copy2(awb_file, criware_folder)
 
         self._execute_command([str(self.UNREAL_PAK), str(mod_root_folder.resolve())], True, cwd=None)
 

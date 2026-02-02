@@ -37,7 +37,7 @@ if sys.platform == 'win32' and getattr(sys, 'frozen', False):
 try:
     from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel, QLineEdit,
                                    QPushButton, QFileDialog, QMessageBox, QTreeWidget, QTreeWidgetItem, QTabWidget, QGridLayout, QSplashScreen,
-                                   QScrollArea, QFrame, QMenuBar, QStatusBar, QProgressBar, QDoubleSpinBox, QStackedWidget)
+                                   QScrollArea, QFrame, QMenuBar, QStatusBar, QProgressBar, QDoubleSpinBox, QStackedWidget, QProgressDialog)
     from PySide6.QtCore import Qt, QThread, Signal, QObject, QTimer
     from PySide6.QtGui import QDesktopServices, QShortcut, QKeySequence, QIcon, QPixmap
     from PySide6.QtCore import QUrl
@@ -273,6 +273,7 @@ class ModBuilderGUI(QMainWindow):
         self.criware_folder_path = None
         self.debug_logging_enabled = False
         self.skip_wav_sanitization = False
+        self.kwastools_acb_method = False
 
         # --- New state vars for direct file selection ---
         self.intro_track_vars = {}
@@ -1008,6 +1009,7 @@ class ModBuilderGUI(QMainWindow):
             
             self.debug_logging_enabled = self.config['Settings'].getboolean('debug_logging', False)
             self.skip_wav_sanitization = self.config['Settings'].getboolean('skip_wav_sanitization', False)
+            self.kwastools_acb_method = self.config['Settings'].getboolean('kwastools_acb_method', False)
 
             if self.debug_logging_enabled:
                 self._show_log_window()
@@ -1026,6 +1028,7 @@ class ModBuilderGUI(QMainWindow):
         self.config['Settings']['criware_folder'] = path_str
         self.config['Settings']['debug_logging'] = str(self.debug_logging_enabled)
         self.config['Settings']['skip_wav_sanitization'] = str(self.skip_wav_sanitization)
+        self.config['Settings']['kwastools_acb_method'] = str(self.kwastools_acb_method)
 
         # Limit to max and save
         self.config['Settings']['recent_files'] = ",".join(self.recent_files[:self.MAX_RECENT_FILES])
@@ -1628,7 +1631,6 @@ class ModBuilderGUI(QMainWindow):
         
         self.unpack_progress.setRange(0, 0) # Indeterminate mode
         self.unpack_progress.setVisible(True)
-        
         self.run_command_threaded(self.logic.unpack_acb, self.on_unpack_complete, self.on_command_error, args=(acb_path,))
 
     def on_unpack_complete(self, result):
@@ -1897,6 +1899,14 @@ class ModBuilderGUI(QMainWindow):
         self.update_status_bar.emit("Applying replacement audio files...", 0)
         replacement_map = {}
 
+        # Show modal progress dialog to block interaction
+        self.progress_dialog = QProgressDialog("Applying Replacement Audio Files...", None, 0, 0, self)
+        self.progress_dialog.setWindowTitle("Please Wait")
+        self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
+        self.progress_dialog.setCancelButton(None)
+        self.progress_dialog.show()
+        QApplication.processEvents()
+
         acb_stem = Path(self._acb_file).stem
         is_special_acb_for_onetoone = acb_stem.startswith("VOICE_") or acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA", "SE_EXTND15_CHARA"] or acb_stem == "BGM" or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_COURSE"
         is_crossworlds = acb_stem.startswith("BGM_STG2")
@@ -2018,24 +2028,43 @@ class ModBuilderGUI(QMainWindow):
                 if trans_short_idx < len(self.original_files):
                     replacement_map[self.original_files[trans_short_idx]] = "transition_short.hca"
 
-        try:
-            files_replaced = self.logic.apply_replacements(self._unpacked_folder, replacement_map)
-            if files_replaced > 0:
-                QMessageBox.information(self, "Success", f"{files_replaced} file(s) replaced successfully in the unpacked folder.")
-            else:
-                QMessageBox.information(self, "No Changes", "No converted tracks found in 'output' folder. Nothing to apply.")
-                return
-        except FileNotFoundError as e:
-            QMessageBox.critical(self, "File Not Found", str(e))
+        # Check if we should use the KwasTools method (Music only)
+        if self.kwastools_acb_method and acb_stem.startswith("BGM"):
+            print(f"Repacking using KwasTools method for {acb_stem}...")
+            self.run_command_threaded(
+                self.logic.repack_acb_kwastools,
+                self.on_repack_complete,
+                self.on_command_error,
+                # Use original source file as input, but output relative to unpacked folder (which is in work dir)
+                args=(self._acb_file, replacement_map, self._unpacked_folder)
+            )
             return
 
-        print("\n--- Step 3: Repacking ACB ---")
-        unpacked_path = Path(self._unpacked_folder)
-        self.update_status_bar.emit(f"Repacking '{unpacked_path.name}'...", 0)
-        self.repack_button.setEnabled(False) # Disable button during operation
-        self.run_command_threaded(self.logic.repack_acb, self.on_repack_complete, self.on_command_error, args=(unpacked_path,))
+        # Standard Method - Run in thread to keep UI responsive (but blocked by dialog)
+        self.run_command_threaded(
+            self._standard_repack_wrapper,
+            self.on_repack_complete,
+            self.on_command_error,
+            args=(self._unpacked_folder, replacement_map)
+        )
+
+    def _standard_repack_wrapper(self, unpacked_folder, replacement_map):
+        """Helper to run standard replacement and repack in a thread."""
+        count = self.logic.apply_replacements(unpacked_folder, replacement_map)
+        if count > 0:
+            self.logic.repack_acb(Path(unpacked_folder))
+        return count
 
     def on_repack_complete(self, result):
+        if self.progress_dialog:
+            self.progress_dialog.close()
+            
+        # Check result from standard wrapper
+        if isinstance(result, int) and result == 0:
+            QMessageBox.information(self, "No Changes", "No converted tracks found in 'output' folder. Nothing to apply.")
+            self.reset_ui_state()
+            return
+
         print("Repacking complete.")
         self.update_status_bar.emit("ACB repacked successfully. Ready to create .pak file.", 0)
         QMessageBox.information(self, "Success", "ACB folder has been repacked!")
@@ -2051,7 +2080,12 @@ class ModBuilderGUI(QMainWindow):
         self.update_status_bar.emit(f"Creating mod package '{mod_name_str}.pak'...", 0)
         try:
             self.pak_button.setEnabled(False)
-            self.run_command_threaded(self.logic.create_pak, self.on_pak_complete, self.on_command_error, args=(mod_name_str, self._acb_file))
+            
+            include_awb = True
+            if self.kwastools_acb_method and Path(self._acb_file).stem.startswith("BGM"):
+                include_awb = False
+
+            self.run_command_threaded(self.logic.create_pak, self.on_pak_complete, self.on_command_error, args=(mod_name_str, self._acb_file), kwargs={'include_awb': include_awb})
         except Exception as e:
             QMessageBox.critical(self, "File Error", f"Error preparing files for packing: {e}")
             self.reset_ui_state()
@@ -2152,6 +2186,7 @@ class ModBuilderGUI(QMainWindow):
             self.debug_logging_enabled = dialog._debug_enabled
             
             self.skip_wav_sanitization = dialog._skip_sanitization_enabled
+            self.kwastools_acb_method = dialog._kwastools_acb_method_enabled
             
             if self.debug_logging_enabled and not old_debug:
                 self._show_log_window()

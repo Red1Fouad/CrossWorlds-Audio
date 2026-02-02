@@ -990,6 +990,7 @@ class SettingsDialog(QDialog):
         self._criware_path = self.main_window.criware_folder_path # Store path during dialog session
         self._debug_enabled = getattr(self.main_window, 'debug_logging_enabled', False)
         self._skip_sanitization_enabled_val = self.main_window.skip_wav_sanitization
+        self._kwastools_acb_method_enabled_val = getattr(self.main_window, 'kwastools_acb_method', False)
 
         layout = QVBoxLayout(self)
 
@@ -1037,6 +1038,19 @@ class SettingsDialog(QDialog):
         self.skip_sanitization_checkbox.setChecked(self._skip_sanitization_enabled_val)
         perf_layout.addWidget(self.skip_sanitization_checkbox)
 
+        # --- Advanced Settings ---
+        adv_group = QGroupBox("Advanced Settings")
+        adv_layout = QVBoxLayout(adv_group)
+        layout.addWidget(adv_group)
+
+        self.kwastools_acb_method_checkbox = QCheckBox("Use KwasTools ACB Method (Music Only)")
+        self.kwastools_acb_method_checkbox.setToolTip(
+            "Uses cri_utf_tool to repack music ACBs by modifying the XML to point to new external HCA files.\n"
+            "This method is experimental but may fix looping issues or file size limits."
+        )
+        self.kwastools_acb_method_checkbox.setChecked(self._kwastools_acb_method_enabled_val)
+        adv_layout.addWidget(self.kwastools_acb_method_checkbox)
+
         # --- Dialog Buttons (OK/Cancel) ---
         button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         button_box.accepted.connect(self.accept)
@@ -1065,3 +1079,7 @@ class SettingsDialog(QDialog):
     @property
     def _skip_sanitization_enabled(self):
         return self.skip_sanitization_checkbox.isChecked()
+
+    @property
+    def _kwastools_acb_method_enabled(self):
+        return self.kwastools_acb_method_checkbox.isChecked()
