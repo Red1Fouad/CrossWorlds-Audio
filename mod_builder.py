@@ -1150,18 +1150,33 @@ class ModBuilderGUI(QMainWindow):
         self.voice_search_bar = None
         track_dict = {}
         is_voice_acb = acb_stem.startswith("VOICE_")
+        print(f"[DEBUG] _populate_special_track_frame called: acb_stem={acb_stem!r}, is_voice_acb={is_voice_acb}")
         
         if is_voice_acb:
-            # Handle AI suffix for dictionary lookup
+            # Handle AI suffix for dictionary lookup.
+            # Only remove an AI suffix when it's an explicit suffix (_AI) or when
+            # the character code segment is longer than the normal 3-letter code
+            # (e.g., 'TAIAI' -> 'TAI'). This avoids stripping the 'AI' that is
+            # legitimately part of a 3-letter code like 'TAI'.
             lookup_stem = acb_stem
-            if lookup_stem.endswith("AI"):
-                lookup_stem = lookup_stem[:-2]
-            
+            if lookup_stem.endswith("_AI"):
+                lookup_stem = lookup_stem[:-3]
+            else:
+                parts = lookup_stem.split('_', 1)
+                if len(parts) > 1:
+                    code = parts[1]
+                    if code.endswith('AI') and len(code) > 3:
+                        lookup_stem = parts[0] + '_' + code[:-2]
+
             track_dict_name = f"VOICE_{lookup_stem.split('_')[1]}_TRACKS"
+            print(f"[DEBUG] voice lookup: lookup_stem={lookup_stem!r}, track_dict_name={track_dict_name!r}")
             track_dict = getattr(data, track_dict_name, {})
+            print(f"[DEBUG] voice lookup result: found={bool(track_dict)}, len={len(track_dict) if hasattr(track_dict, '__len__') else 'N/A'}")
+            print(f"[DEBUG] voice lookup result: found={bool(track_dict)}, len={len(track_dict) if hasattr(track_dict, '__len__') else 'N/A'}")
         elif acb_stem == "SE_EXTND10_CHARA": # Miku - check this before SPECIAL_TRACK_MAP
             track_dict = data.VOICE_EXTND10_CHARA_TRACKS
             is_voice_acb = True # Treat her like a voice ACB for UI purposes
+            print(f"[DEBUG] matched SE_EXTND10_CHARA -> using VOICE_EXTND10_CHARA_TRACKS (len={len(track_dict)})")
         elif acb_stem == "SE_EXTND11_CHARA": # Joker
             track_dict = data.VOICE_EXTND11_CHARA_TRACKS
             is_voice_acb = True
@@ -1174,6 +1189,7 @@ class ModBuilderGUI(QMainWindow):
         elif acb_stem in ["SE_WER_CHARA", "SE_PRIME_CHARA", "SE_EXTND04_CHARA", "SE_EXTND05_CHARA", "SE_EXTND06_CHARA", "SE_EXTND14_CHARA"]:
             track_dict = data.SPECIAL_TRACK_MAP[acb_stem]
             is_voice_acb = True
+            print(f"[DEBUG] matched SPECIAL_TRACK_MAP key: {acb_stem!r} -> len={len(track_dict) if track_dict else 0}")
         elif acb_stem == "BGM_EXTND04": # Minecraft uses its own full dictionary
             track_dict = data.DLC_MINECRAFT_TRACKS
         elif acb_stem == "BGM":
@@ -1183,6 +1199,7 @@ class ModBuilderGUI(QMainWindow):
             track_dict = data.SE_COURSE_TRACKS
         elif acb_stem in data.SPECIAL_TRACK_MAP:
             track_dict = data.SPECIAL_TRACK_MAP[acb_stem]
+            print(f"[DEBUG] matched SPECIAL_TRACK_MAP fallback: {acb_stem!r} -> len={len(track_dict) if track_dict else 0}")
 
 
         # Add search bar
@@ -1194,6 +1211,7 @@ class ModBuilderGUI(QMainWindow):
             self.special_track_frame.layout().addWidget(self.voice_search_bar)
 
         if not track_dict:
+            print(f"[DEBUG] No track structure defined for {acb_stem!r} in data.py. Available VOICE_* keys: {[k for k in dir(data) if k.startswith('VOICE_')]}")
             label = QLabel(f"No track structure defined for {acb_stem} in data.py yet.")
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.special_track_frame.layout().addWidget(label)
