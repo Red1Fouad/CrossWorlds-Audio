@@ -420,10 +420,11 @@ class ModBuilderGUI(QMainWindow):
         search_filename = filename_map.get(acb_stem, acb_stem)
 
         # --- 1. Try the direct, fast path first ---
-        direct_path = TOOLS_DIR / "images" / image_folder / f"{search_filename}.png"
-        if direct_path.exists():
-            return direct_path
-        
+        for ext in ['.png', '.webp']:
+            direct_path = TOOLS_DIR / "images" / image_folder / f"{search_filename}{ext}"
+            if direct_path.exists():
+                return direct_path
+
         # If mapped, also try looking in a 'characters' folder if the default folder failed
         if acb_stem in filename_map:
              char_path = TOOLS_DIR / "images" / "characters" / f"{search_filename}.png"
@@ -433,7 +434,9 @@ class ModBuilderGUI(QMainWindow):
         # --- 2. If not found, perform a smarter keyword search ---
         # Build a cache of all image files on the first run
         if self._image_file_cache is None:
-            self._image_file_cache = list((TOOLS_DIR / "images").rglob("*.png"))
+            self._image_file_cache = []
+            for ext in ['*.png', '*.webp']:
+                self._image_file_cache.extend(list((TOOLS_DIR / "images").rglob(ext)))
 
         # Prepare keywords from the friendly name (e.g., "Ocean View" -> ["ocean", "view"])
         # Also remove characters that might be in filenames but not titles
@@ -488,7 +491,7 @@ class ModBuilderGUI(QMainWindow):
             col, row = 0, 0
             for acb_stem, friendly_name in data.FRIENDLY_NAME_MAP.items():
                 # Special handling for menus to avoid including stages
-                if prefix == "BGM" and (acb_stem.startswith("BGM_STG") or acb_stem.startswith("BGM_EXTND") or acb_stem.startswith("BGM_JBM") or acb_stem.startswith("BGM_BONUS")):
+                if prefix == "BGM" and (acb_stem.startswith("BGM_STG") or acb_stem.startswith("BGM_EXTND") or acb_stem.startswith("BGM_JBM") or acb_stem.startswith("BGM_BONUS") or acb_stem.startswith("BGM_GP")):
                     continue
                 
                 # Special handling for guest characters to ensure they only appear in the Misc tab.
@@ -496,11 +499,16 @@ class ModBuilderGUI(QMainWindow):
                 if (tab_name == "Voices" and is_guest_char):
                     continue
 
-                # Only allow specific DLC stages in the DLC Stages tab (exclude character packs and jukebox songs)
-                if prefix == "BGM_EXTND" and acb_stem not in ["BGM_EXTND04", "BGM_EXTND05", "BGM_EXTND06"]:
+                # DLC Stages Tab Logic
+                if prefix == "BGM_EXTND":
+                    # Only allow specific DLC stages and the Crossover GP
+                    if acb_stem not in ["BGM_EXTND04", "BGM_EXTND05", "BGM_EXTND06"] and acb_stem != "BGM_GP_09_FINAL_EXTND04_05_06":
+                        continue
+                elif acb_stem == "BGM_GP_09_FINAL_EXTND04_05_06" and prefix != "BGM_EXTND":
                     continue
 
-                if acb_stem.startswith(prefix):
+                # Stages Tab Logic (Include BGM_GP but exclude the Crossover one which went to DLC)
+                if acb_stem.startswith(prefix) or (prefix == "BGM_STG1" and acb_stem.startswith("BGM_GP") and acb_stem != "BGM_GP_09_FINAL_EXTND04_05_06") or (prefix == "BGM_EXTND" and acb_stem == "BGM_GP_09_FINAL_EXTND04_05_06"):
                     image_path = self._find_image_path(acb_stem, friendly_name, image_folder)
                     card = ImageCard(acb_stem, friendly_name, image_path)
                     card.clicked.connect(self.on_card_selected)
@@ -2013,6 +2021,24 @@ class ModBuilderGUI(QMainWindow):
                 for main, shorts in pacman_shorts.items():
                     if (OUTPUT_DIR / f"{main}.hca").exists():
                         for short in shorts:
+                            replacement_map[f"{short}.hca"] = f"{main}.hca"
+            
+            # Handle implicit shorts for Grand Prix tracks (First 5s)
+            if acb_stem.startswith("BGM_GP_"):
+                gp_shorts = {
+                    "BGM_GP_01_FINAL": {"00002_streaming": "00003_streaming"}, # Water Palace
+                    "BGM_GP_02_FINAL": {"00004_streaming": "00005_streaming"}, # Colorful Mall
+                    "BGM_GP_03_FINAL": {"00004_streaming": "00005_streaming"}, # Wonder Museum
+                    "BGM_GP_04_FINAL": {"00002_streaming": "00003_streaming"}, # Pumpkin Mansion
+                    "BGM_GP_05_FINAL": {"00004_streaming": "00005_streaming"}, # Coral Town
+                    "BGM_GP_06_FINAL": {"00004_streaming": "00005_streaming"}, # Chao Park
+                    "BGM_GP_07_FINAL": {"00003_streaming": "00004_streaming"}, # Eggman Expo
+                    "BGM_GP_08_FINAL": {"00004_streaming": "00005_streaming"}, # White Space
+                    "BGM_GP_09_FINAL_EXTND04_05_06": {"00006_streaming": "00007_streaming"}, # PAC-Village
+                }
+                if acb_stem in gp_shorts:
+                    for main, short in gp_shorts[acb_stem].items():
+                        if (OUTPUT_DIR / f"{main}.hca").exists():
                             replacement_map[f"{short}.hca"] = f"{main}.hca"
 
         elif acb_stem in special_structures:

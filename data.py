@@ -30,6 +30,17 @@ BGM_DATA = {
         "EXTND12": "Ichiban Kasuga (Music)",
         "EXTND15": "NiGHTS (Music)",
     },
+    "Grand Prix": {
+        "GP_01_FINAL": "Donpa Grand Prix",
+        "GP_02_FINAL": "Wisp Grand Prix",
+        "GP_03_FINAL": "Boom Boo Grand Prix",
+        "GP_04_FINAL": "Pumpkin Grand Prix",
+        "GP_05_FINAL": "Coral Grand Prix",
+        "GP_06_FINAL": "Chao Grand Prix",
+        "GP_07_FINAL": "Egg Grand Prix",
+        "GP_08_FINAL": "Secret Grand Prix",
+        "GP_09_FINAL_EXTND04_05_06": "CrossOver Grand Prix 1",
+    },
     "Voice Lines": {
         "SON": "Sonic",
         "TAI": "Tails",
@@ -528,6 +539,72 @@ SE_EXTND06_CHARA_TRACKS = {
     "Stunt 6 & 12 (2-5)": "00032",
 }
 
+BGM_GP_01_FINAL_TRACKS = {
+    "Final Lap Jingle": "00001_streaming",
+    "E-Stadium": "00004_streaming",
+    "Rainbow Garden": "00005_streaming",
+    "Water Palace": "00002_streaming",
+}
+
+BGM_GP_02_FINAL_TRACKS = {
+    "Final Lap Jingle": "00001_streaming",
+    "Metal Harbor": "00003_streaming",
+    "Sand Road": "00002_streaming",
+    "Colorful Mall": "00004_streaming",
+}
+
+BGM_GP_03_FINAL_TRACKS = {
+    "Final Lap Jingle": "00002_streaming",
+    "Mystic Jungle": "00003_streaming",
+    "Apotos": "00001_streaming",
+    "Wonder Museum": "00004_streaming",
+}
+
+BGM_GP_04_FINAL_TRACKS = {
+    "Final Lap Jingle": "00001_streaming",
+    "Crystal Mine": "00005_streaming",
+    "Ocean View": "00004_streaming",
+    "Pumpkin Mansion": "00002_streaming",
+}
+
+BGM_GP_05_FINAL_TRACKS = {
+    "Final Lap Jingle": "00002_streaming",
+    "Urban Canyon": "00001_streaming",
+    "Market Street": "00003_streaming",
+    "Coral Town": "00004_streaming",
+}
+
+BGM_GP_06_FINAL_TRACKS = {
+    "Final Lap Jingle": "00001_streaming",
+    "Blizzard Valley": "00002_streaming",
+    "Radical Highway": "00003_streaming",
+    "Chao Park": "00004_streaming",
+}
+
+BGM_GP_07_FINAL_TRACKS = {
+    "Final Lap Jingle": "00002_streaming",
+    "Donpa Factory": "00001_streaming",
+    "Aqua Forest": "00005_streaming",
+    "Eggman Expo": "00003_streaming",
+}
+
+BGM_GP_08_FINAL_TRACKS = {
+    "Final Lap Jingle": "00001_streaming",
+    "Kronos Island": "00003_streaming",
+    "Northstar Islands": "00002_streaming",
+    "White Space": "00004_streaming",
+}
+
+BGM_GP_09_FINAL_EXTND04_05_06_TRACKS = {
+    "Final Lap Jingle": "00001_streaming",
+    "Minecraft World (The Nether)": "00002_streaming",
+    "Minecraft World": "00003_streaming",
+    "Minecraft World (Outside)": "00004_streaming",
+    "BiKiNi Bottom": "00005_streaming",
+    "PAC-Village": "00006_streaming",
+    "PAC-Maze": "00008_streaming",
+}
+
 # A map to easily get the correct dictionary for a given ACB stem
 SPECIAL_TRACK_MAP = {
     "BGM": MENU_BGM_TRACKS,
@@ -609,6 +686,15 @@ SPECIAL_TRACK_MAP = {
     "BGM_EXTND27": BGM_EXTND27_TRACKS,
     "BGM_BONUS01": BGM_BONUS01_TRACKS,
     "BGM_BONUS02": BGM_BONUS02_TRACKS,
+    "BGM_GP_01_FINAL": BGM_GP_01_FINAL_TRACKS,
+    "BGM_GP_02_FINAL": BGM_GP_02_FINAL_TRACKS,
+    "BGM_GP_03_FINAL": BGM_GP_03_FINAL_TRACKS,
+    "BGM_GP_04_FINAL": BGM_GP_04_FINAL_TRACKS,
+    "BGM_GP_05_FINAL": BGM_GP_05_FINAL_TRACKS,
+    "BGM_GP_06_FINAL": BGM_GP_06_FINAL_TRACKS,
+    "BGM_GP_07_FINAL": BGM_GP_07_FINAL_TRACKS,
+    "BGM_GP_08_FINAL": BGM_GP_08_FINAL_TRACKS,
+    "BGM_GP_09_FINAL_EXTND04_05_06": BGM_GP_09_FINAL_EXTND04_05_06_TRACKS,
 }
 
 SE_COURSE_TRACKS = {
@@ -6340,6 +6426,7 @@ def _create_friendly_name_map():
     name_map.update({f"BGM_STG{k}": v for k, v in BGM_DATA["Track Themes"].items()})
     name_map.update({f"BGM_STG{k}": v for k, v in BGM_DATA["Crossworlds"].items()})
     name_map.update({f"BGM_{k}": v for k, v in BGM_DATA["DLC Tracks"].items()})
+    name_map.update({f"BGM_{k}": v for k, v in BGM_DATA["Grand Prix"].items()})
     name_map.update({f"SE_{k}": v for k, v in BGM_DATA["Misc"].items()})
     name_map.update({f"VOICE_{k}": v for k, v in BGM_DATA["Voice Lines"].items()})
 
