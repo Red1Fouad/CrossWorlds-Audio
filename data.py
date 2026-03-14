@@ -113,7 +113,7 @@ BGM_DATA = {
         "JBM0026": "Stardust Speedway Zone",
         "JBM0027": "Metallic Madness",
         "JBM0029": "Fist Bump",
-        "JBM0030": "Luminous Forest",
+        "JBM0030": "Mystic Jungle",
         "JBM0031": "Sunset Heights",
         "JBM0028": "Infinite",
         "JBM0065": "Ocean View",
@@ -367,7 +367,7 @@ BGM_JBM0025_TRACKS = {"Studiopolis Zone Act 1": "00019_streaming", "Studiopolis 
 BGM_JBM0026_TRACKS = {"Stardust Speedway Zone Act 2": "00019_streaming", "Stardust Speedway Zone Act 2 (Final Lap)": "00020_streaming"}
 BGM_JBM0027_TRACKS = {"Metallic Madness Zone Act 2": "00019_streaming", "Metallic Madness Zone Act 2 (Final Lap)": "00020_streaming"}
 BGM_JBM0029_TRACKS = {"Fist Bump": "00019_streaming", "Fist Bump (Final Lap)": "00020_streaming"}
-BGM_JBM0030_TRACKS = {"Luminous Forest": "00010_streaming", "Luminous Forest (Final Lap)": "00011_streaming"}
+BGM_JBM0030_TRACKS = {"Mystic Jungle": "00010_streaming", "Mystic Jungle (Final Lap)": "00011_streaming"}
 BGM_JBM0031_TRACKS = {"Sunset Heights": "00010_streaming", "Sunset Heights (Final Lap)": "00011_streaming"}
 BGM_JBM0028_TRACKS = {"Infinite": "00019_streaming", "Infinite (Final Lap)": "00020_streaming"}
 BGM_JBM0065_TRACKS = {"Ocean View: Lap Music": "00019_streaming", "Ocean View: Final Lap": "00020_streaming"}
@@ -540,59 +540,59 @@ SE_EXTND06_CHARA_TRACKS = {
 }
 
 BGM_GP_01_FINAL_TRACKS = {
-    "Final Lap Jingle": "00001_streaming",
-    "E-Stadium": "00004_streaming",
-    "Rainbow Garden": "00005_streaming",
-    "Water Palace": "00002_streaming",
+    "Final Lap Jingle": "00000_streaming",
+    "E-Stadium": "00003_streaming",
+    "Rainbow Garden": "00004_streaming",
+    "Water Palace": "00001_streaming",
 }
 
 BGM_GP_02_FINAL_TRACKS = {
-    "Final Lap Jingle": "00001_streaming",
-    "Metal Harbor": "00003_streaming",
-    "Sand Road": "00002_streaming",
-    "Colorful Mall": "00004_streaming",
+    "Final Lap Jingle": "00000_streaming",
+    "Metal Harbor": "00002_streaming",
+    "Sand Road": "00001_streaming",
+    "Colorful Mall": "00003_streaming",
 }
 
 BGM_GP_03_FINAL_TRACKS = {
-    "Final Lap Jingle": "00002_streaming",
-    "Mystic Jungle": "00003_streaming",
-    "Apotos": "00001_streaming",
-    "Wonder Museum": "00004_streaming",
+    "Final Lap Jingle": "00001_streaming",
+    "Mystic Jungle": "00002_streaming",
+    "Apotos": "00000_streaming",
+    "Wonder Museum": "00003_streaming",
 }
 
 BGM_GP_04_FINAL_TRACKS = {
-    "Final Lap Jingle": "00001_streaming",
-    "Crystal Mine": "00005_streaming",
-    "Ocean View": "00004_streaming",
-    "Pumpkin Mansion": "00002_streaming",
+    "Final Lap Jingle": "00000_streaming",
+    "Crystal Mine": "00004_streaming",
+    "Ocean View": "00003_streaming",
+    "Pumpkin Mansion": "00001_streaming",
 }
 
 BGM_GP_05_FINAL_TRACKS = {
-    "Final Lap Jingle": "00002_streaming",
-    "Urban Canyon": "00001_streaming",
-    "Market Street": "00003_streaming",
-    "Coral Town": "00004_streaming",
+    "Final Lap Jingle": "00001_streaming",
+    "Urban Canyon": "00000_streaming",
+    "Market Street": "00002_streaming",
+    "Coral Town": "00003_streaming",
 }
 
 BGM_GP_06_FINAL_TRACKS = {
-    "Final Lap Jingle": "00001_streaming",
-    "Blizzard Valley": "00002_streaming",
-    "Radical Highway": "00003_streaming",
-    "Chao Park": "00004_streaming",
+    "Final Lap Jingle": "00000_streaming",
+    "Blizzard Valley": "00001_streaming",
+    "Radical Highway": "00002_streaming",
+    "Chao Park": "00003_streaming",
 }
 
 BGM_GP_07_FINAL_TRACKS = {
-    "Final Lap Jingle": "00002_streaming",
-    "Donpa Factory": "00001_streaming",
-    "Aqua Forest": "00005_streaming",
-    "Eggman Expo": "00003_streaming",
+    "Final Lap Jingle": "00001_streaming",
+    "Donpa Factory": "00000_streaming",
+    "Aqua Forest": "00004_streaming",
+    "Eggman Expo": "00002_streaming",
 }
 
 BGM_GP_08_FINAL_TRACKS = {
-    "Final Lap Jingle": "00001_streaming",
-    "Kronos Island": "00003_streaming",
-    "Northstar Islands": "00002_streaming",
-    "White Space": "00004_streaming",
+    "Final Lap Jingle": "00000_streaming",
+    "Kronos Island": "00002_streaming",
+    "Northstar Islands": "00001_streaming",
+    "White Space": "00003_streaming",
 }
 
 BGM_GP_09_FINAL_EXTND04_05_06_TRACKS = {

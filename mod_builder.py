@@ -65,19 +65,29 @@ GITHUB_REPO = "Red1Fouad/CrossWorlds-Audio"
 # Format: "BGM_STGxxxx": (announce_idx, trans_idx, trans_short_idx)
 # Indices are 0-based (User Input - 1). None means the track does not exist.
 ADDITIONAL_TRACK_INDICES = {
-    "BGM_STG1001": (5, 6, 7), "BGM_STG1003": (5, 6, 7), "BGM_STG1005": (5, 6, None),
-    "BGM_STG1016": (5, 7, 6), "BGM_STG1017": (5, 7, 6), "BGM_STG1018": (5, 7, 6),
-    "BGM_STG1020": (5, 6, None), "BGM_STG1021": (5, 6, 7), "BGM_STG1022": (5, 7, 6),
-    "BGM_STG1023": (5, 7, 6), "BGM_STG1024": (5, 6, 7), "BGM_STG1025": (5, 6, None),
-    "BGM_STG1026": (6, 7, 8), "BGM_STG1027": (5, 6, None), "BGM_STG1028": (5, 6, 7),
-    "BGM_STG1029": (5, 6, None), "BGM_STG1030": (4, 5, 6), "BGM_STG1031": (5, 7, 6),
-    "BGM_STG1032": (5, 7, 6), "BGM_STG1033": (5, 6, None), "BGM_STG1034": (6, 7, None),
-    "BGM_STG1035": (5, 6, 7), "BGM_STG1036": (5, 6, None), "BGM_STG1037": (5, 6, 7),
-    "BGM_STG2001": (4, 14, 5), "BGM_STG2002": (4, 5, 6), "BGM_STG2003": (4, 6, 5),
-    "BGM_STG2004": (3, 5, 4), "BGM_STG2005": (4, 5, 6), "BGM_STG2007": (4, 5, 6),
-    "BGM_STG2009": (4, 5, 6), "BGM_STG2010": (4, 6, 5), "BGM_STG2011": (4, 5, 6),
-    "BGM_STG2012": (4, 5, None), "BGM_STG2014": (4, 5, 6), "BGM_STG2015": (4, 5, None),
-    "BGM_STG2016": (4, 5, 6), "BGM_STG2017": (4, 5, 6), "BGM_STG2019": (4, 5, None),
+    "BGM_STG1001": (4, 5, 6), "BGM_STG1003": (4, 5, 6), "BGM_STG1005": (5, 6, None), # No change
+    "BGM_STG1016": (4, 6, 5), "BGM_STG1017": (4, 6, 5), "BGM_STG1018": (5, 7, 6), # No change
+    "BGM_STG1020": (4, 5, None), "BGM_STG1021": (4, 5, 6), "BGM_STG1022": (4, 6, 5), # No change
+    "BGM_STG1023": (4, 6, 5), "BGM_STG1024": (4, 5, 6), "BGM_STG1025": (4, 5, None), # No change
+    "BGM_STG1026": (5, 6, 7), "BGM_STG1027": (4, 5, None), "BGM_STG1028": (4, 5, 6), # No change
+    "BGM_STG1029": (4, 5, None), "BGM_STG1030": (3, 5, 4), "BGM_STG1031": (4, 6, 5), # No change
+    "BGM_STG1032": (4, 6, 5), "BGM_STG1033": (4, 5, None), "BGM_STG1034": (5, 6, None), # No change
+    "BGM_STG1035": (4, 5, 6), "BGM_STG1036": (5, 6, None), "BGM_STG1037": (4, 5, 6), # No change
+    "BGM_STG2001": (3, 4, 5), # Changed from (4, 14, 5)
+    "BGM_STG2002": (4, 5, 6), # No change
+    "BGM_STG2003": (3, 5, 4), # Changed from (4, 6, 5)
+    "BGM_STG2004": (2, 4, 3), # Changed from (3, 5, 4)
+    "BGM_STG2005": (4, 5, 6), # No change
+    "BGM_STG2007": (4, 5, 6), # No change
+    "BGM_STG2009": (4, 5, 6), # No change
+    "BGM_STG2010": (4, 6, 5), # No change
+    "BGM_STG2011": (3, 4, 5), # Changed from (4, 5, 6)
+    "BGM_STG2012": (4, 5, None), # No change
+    "BGM_STG2014": (4, 5, 6), # No change
+    "BGM_STG2015": (4, 5, None), # No change
+    "BGM_STG2016": (3, 4, 5), # Changed from (4, 5, 6)
+    "BGM_STG2017": (4, 5, 6), # No change
+    "BGM_STG2019": (4, 5, None), # No change
 }
 
 # --- Jukebox Image Mapping ---
@@ -2026,14 +2036,14 @@ class ModBuilderGUI(QMainWindow):
             # Handle implicit shorts for Grand Prix tracks (First 5s)
             if acb_stem.startswith("BGM_GP_"):
                 gp_shorts = {
-                    "BGM_GP_01_FINAL": {"00002_streaming": "00003_streaming"}, # Water Palace
-                    "BGM_GP_02_FINAL": {"00004_streaming": "00005_streaming"}, # Colorful Mall
-                    "BGM_GP_03_FINAL": {"00004_streaming": "00005_streaming"}, # Wonder Museum
-                    "BGM_GP_04_FINAL": {"00002_streaming": "00003_streaming"}, # Pumpkin Mansion
-                    "BGM_GP_05_FINAL": {"00004_streaming": "00005_streaming"}, # Coral Town
-                    "BGM_GP_06_FINAL": {"00004_streaming": "00005_streaming"}, # Chao Park
-                    "BGM_GP_07_FINAL": {"00003_streaming": "00004_streaming"}, # Eggman Expo
-                    "BGM_GP_08_FINAL": {"00004_streaming": "00005_streaming"}, # White Space
+                    "BGM_GP_01_FINAL": {"00001_streaming": "00002_streaming"}, # Water Palace
+                    "BGM_GP_02_FINAL": {"00003_streaming": "00004_streaming"}, # Colorful Mall
+                    "BGM_GP_03_FINAL": {"00003_streaming": "00004_streaming"}, # Wonder Museum
+                    "BGM_GP_04_FINAL": {"00001_streaming": "00002_streaming"}, # Pumpkin Mansion
+                    "BGM_GP_05_FINAL": {"00003_streaming": "00004_streaming"}, # Coral Town
+                    "BGM_GP_06_FINAL": {"00003_streaming": "00004_streaming"}, # Chao Park
+                    "BGM_GP_07_FINAL": {"00002_streaming": "00003_streaming"}, # Eggman Expo
+                    "BGM_GP_08_FINAL": {"00003_streaming": "00004_streaming"}, # White Space
                     "BGM_GP_09_FINAL_EXTND04_05_06": {"00006_streaming": "00007_streaming"}, # PAC-Village
                 }
                 if acb_stem in gp_shorts:
