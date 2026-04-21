@@ -5,6 +5,8 @@ import numpy as np
 import struct
 from pathlib import Path
 import math
+import subprocess
+import json
 
 try:
     from pydub import AudioSegment
@@ -88,43 +90,70 @@ def get_audio_pcm(file_path):
 
 def normalize_audio_file(source_path_str, reference_path_str, output_path_str):
     """
-    Normalizes the source audio file to match the RMS volume of the reference file.
-    The output is always a WAV file.
+    Normalizes the source audio file to EBU R128 standards (-10.4 LUFS) using FFmpeg.
+    The reference_path_str argument is kept for compatibility but is no longer used.
     """
     source_path = Path(source_path_str)
     output_path = Path(output_path_str)
 
-    # 1. Calculate target RMS from reference file
-    reference_pcm = get_audio_pcm(reference_path_str)
-    target_rms = calculate_rms(reference_pcm)
-    if target_rms == 0:
-        print(f"Warning: Reference file '{Path(reference_path_str).name}' is silent. Cannot normalize.")
-        return
-
-    # 2. Load source audio
-    source_audio = AudioSegment.from_file(source_path)
-
-    # 3. Get source PCM data for calculation
-    # We can reuse the loaded source_audio to get samples, but get_audio_pcm is fine
-    source_pcm_for_calc = np.array(source_audio.get_array_of_samples()).astype(np.float32)
-
-    # 4. Calculate scaling factor
-    source_rms = calculate_rms(source_pcm_for_calc)
-    if source_rms == 0: # Avoid division by zero for silent files
-        print(f"Skipping normalization for silent file: {source_path.name}")
-        source_audio.export(output_path, format="wav")
-        return
-
-    ratio = target_rms / source_rms
+    # 1. Resolve FFmpeg path
+    ffmpeg_path = "ffmpeg"
+    if sys.platform.startswith("linux"):
+        local_ffmpeg = Path("tools/ffmpeg").resolve()
+    else:
+        local_ffmpeg = Path("tools/ffmpeg.exe").resolve()
     
-    # pydub uses dB for volume changes
-    db_change = 20 * math.log10(ratio)
+    if local_ffmpeg.exists():
+        ffmpeg_path = str(local_ffmpeg)
 
-    # 5. Apply gain and export
-    normalized_audio = source_audio.apply_gain(db_change)
-    
-    # Ensure output directory exists
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    
-    normalized_audio.export(output_path, format="wav")
-    print(f"Normalized '{source_path.name}' against '{Path(reference_path_str).name}'. Saved to '{output_path}'")
+    # Normalization Targets
+    TARGET_LUFS = -10.4
+    TARGET_TP = -0.3
+    TARGET_LRA = 11
+
+    creation_flags = 0x08000000 if sys.platform == "win32" else 0
+
+    try:
+        # Pass 1: Analysis
+        # We use resolve() to ensure paths are absolute and properly handled by the OS/Subprocess
+        analyze_cmd = [
+            ffmpeg_path, "-y", "-i", str(source_path.resolve()),
+            "-af", f"loudnorm=I={TARGET_LUFS}:TP={TARGET_TP}:LRA={TARGET_LRA}:print_format=json",
+            "-f", "null", "-"
+        ]
+        
+        result = subprocess.run(analyze_cmd, capture_output=True, text=True, encoding='utf-8', errors='replace', creationflags=creation_flags)
+        
+        # Extract JSON from ffmpeg output (contained in stderr)
+        output = result.stderr
+        start = output.find("{")
+        end = output.rfind("}") + 1
+        if start == -1 or end == 0:
+            raise ValueError("FFmpeg could not analyze the audio file. It might be corrupted or in an unsupported format.")
+            
+        json_str = output[start:end]
+        stats = json.loads(json_str)
+        
+        # Pass 2: Normalization
+        normalize_cmd = [
+            ffmpeg_path, "-y", "-i", str(source_path.resolve()),
+            "-af", (
+                f"loudnorm=I={TARGET_LUFS}:TP={TARGET_TP}:LRA={TARGET_LRA}:"
+                f"measured_I={stats['input_i']}:"
+                f"measured_LRA={stats['input_lra']}:"
+                f"measured_TP={stats['input_tp']}:"
+                f"measured_thresh={stats['input_thresh']}:"
+                f"offset={stats['target_offset']}:"
+                f"linear=true"
+            ),
+            "-ar", "44100",
+            str(output_path.resolve())
+        ]
+        
+        subprocess.run(normalize_cmd, check=True, capture_output=True, creationflags=creation_flags)
+        print(f"Normalized '{source_path.name}' using EBU R128 two-pass (-10.4 LUFS).")
+
+    except (ValueError, json.JSONDecodeError, KeyError, subprocess.CalledProcessError) as e:
+        print(f"Normalization failed for {source_path.name}: {e}")
+        # Propagate error so the UI can notify the user
+        raise RuntimeError(f"FFmpeg normalization failed: {e}") from e

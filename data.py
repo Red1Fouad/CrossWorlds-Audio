@@ -391,7 +391,7 @@ BGM_JBM0046_TRACKS = {"Kingdom Valley: Act 1": "00019_streaming", "Kingdom Valle
 BGM_JBM0047_TRACKS = {"Boss Battle: Mephiles Pt-II": "00019_streaming", "Boss Battle: Mephiles Pt-II (Final Lap)": "00020_streaming"}
 BGM_EXTND23_TRACKS = {"Get Higher": "00021_streaming", "Get Higher [for Final Lap]": "00022_streaming"}
 BGM_EXTND26_TRACKS = {"No.1": "00020_streaming", "No.1 [for Final Lap]": "00022_streaming"}
-BGM_EXTND27_TRACKS = {"Inugami Precious Moments": "00011_streaming", "Inugami Precious Moments [for Final Lap]": "00012_streaming"}
+BGM_EXTND27_TRACKS = {"Inugami Precious Moments": "00010_streaming", "Inugami Precious Moments [for Final Lap]": "00011_streaming"}
 BGM_BONUS01_TRACKS = {"Werehog Battle Theme": "00023_streaming", "Werehog Battle Theme (Alt)": "00025_streaming", "The World Adventure": "00021_streaming", "Werehog: Result": "00022_streaming", "Werehog: Ceremony": "00020_streaming"}
 BGM_BONUS02_TRACKS = {"Sonic Prime: Character Select": "00004_streaming", "Sonic Prime: Result": "00005_streaming", "Sonic Prime: Ceremony (Nine)": "00001_streaming", "Sonic Prime: Ceremony (Rusty Rose)": "00002_streaming", "Sonic Prime: Ceremony (Dread)": "00003_streaming"}
 

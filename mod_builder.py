@@ -65,29 +65,67 @@ GITHUB_REPO = "Red1Fouad/CrossWorlds-Audio"
 # Format: "BGM_STGxxxx": (announce_idx, trans_idx, trans_short_idx)
 # Indices are 0-based (User Input - 1). None means the track does not exist.
 ADDITIONAL_TRACK_INDICES = {
-    "BGM_STG1001": (4, 5, 6), "BGM_STG1003": (4, 5, 6), "BGM_STG1005": (5, 6, None), # No change
-    "BGM_STG1016": (4, 6, 5), "BGM_STG1017": (4, 6, 5), "BGM_STG1018": (5, 7, 6), # No change
-    "BGM_STG1020": (4, 5, None), "BGM_STG1021": (4, 5, 6), "BGM_STG1022": (4, 6, 5), # No change
-    "BGM_STG1023": (4, 6, 5), "BGM_STG1024": (4, 5, 6), "BGM_STG1025": (4, 5, None), # No change
-    "BGM_STG1026": (5, 6, 7), "BGM_STG1027": (4, 5, None), "BGM_STG1028": (4, 5, 6), # No change
-    "BGM_STG1029": (4, 5, None), "BGM_STG1030": (3, 5, 4), "BGM_STG1031": (4, 6, 5), # No change
-    "BGM_STG1032": (4, 6, 5), "BGM_STG1033": (4, 5, None), "BGM_STG1034": (5, 6, None), # No change
-    "BGM_STG1035": (4, 5, 6), "BGM_STG1036": (5, 6, None), "BGM_STG1037": (4, 5, 6), # No change
-    "BGM_STG2001": (3, 4, 5), # Changed from (4, 14, 5)
+    "BGM_STG1001": (6, 7, 8), "BGM_STG1003": (6, 7, 8), "BGM_STG1005": (6, 7, None),
+    "BGM_STG1016": (6, 8, 7), "BGM_STG1017": (6, 8, 7), "BGM_STG1018": (6, 8, 7),
+    "BGM_STG1020": (6, 7, None), "BGM_STG1021": (6, 7, 8), "BGM_STG1022": (6, 8, 7),
+    "BGM_STG1023": (6, 8, 7), "BGM_STG1024": (6, 7, 8), "BGM_STG1025": (6, 7, None),
+    "BGM_STG1026": (7, 8, 9), "BGM_STG1027": (6, 7, None), "BGM_STG1028": (6, 7, 8),
+    "BGM_STG1029": (6, 7, 8), "BGM_STG1030": (4, 6, 7), "BGM_STG1031": (6, 7, 8),
+    "BGM_STG1032": (6, 8, 7), "BGM_STG1033": (6, 7, None), "BGM_STG1034": (7, 8, None),
+    "BGM_STG1035": (6, 7, 8), "BGM_STG1036": (6, 7, None), "BGM_STG1037": (6, 7, 8),
+    "BGM_STG2001": (5, 6, None),
     "BGM_STG2002": (4, 5, 6), # No change
-    "BGM_STG2003": (3, 5, 4), # Changed from (4, 6, 5)
-    "BGM_STG2004": (2, 4, 3), # Changed from (3, 5, 4)
+    "BGM_STG2003": (4, 6, 5),
+    "BGM_STG2004": (3, 5, 4),
     "BGM_STG2005": (4, 5, 6), # No change
     "BGM_STG2007": (4, 5, 6), # No change
     "BGM_STG2009": (4, 5, 6), # No change
     "BGM_STG2010": (4, 6, 5), # No change
-    "BGM_STG2011": (3, 4, 5), # Changed from (4, 5, 6)
+    "BGM_STG2011": (4, 5, 6),
     "BGM_STG2012": (4, 5, None), # No change
     "BGM_STG2014": (4, 5, 6), # No change
     "BGM_STG2015": (4, 5, None), # No change
-    "BGM_STG2016": (3, 4, 5), # Changed from (4, 5, 6)
+    "BGM_STG2016": (4, 5, 6),
     "BGM_STG2017": (4, 5, 6), # No change
     "BGM_STG2019": (4, 5, None), # No change
+}
+
+STAGE_STRUCTURES = {
+    # Dodonpa Factory
+    "BGM_STG1026": {"lap1": 0, "lap1_intro": 1, "final_lap": 6, "final_lap_intro": None, "intro": 3},
+    # E-Stadium, Rainbow Garden, Metal Harbor, Wonder Museum, Crystal Mine, Ocean View, Pumpkin Mansion, Urban Canyon, Coral Town, Aqua Forest, White Space, Blizzard Valley
+    "BGM_STG1016": {"intro": 4, "lap1": 0, "lap1_intro": 1, "final_lap": 2, "final_lap_intro": 3},
+    "BGM_STG1017": {"intro": 4, "lap1": 0, "lap1_intro": 1, "final_lap": 2, "final_lap_intro": 3},
+    "BGM_STG1018": {"intro": 4, "lap1": 0, "lap1_intro": 1, "final_lap": 2, "final_lap_intro": 3},
+    "BGM_STG1022": {"intro": 4, "lap1": 0, "lap1_intro": 1, "final_lap": 2, "final_lap_intro": 3},
+    "BGM_STG1024": {"intro": 4, "lap1": 0, "lap1_intro": 1, "final_lap": 2, "final_lap_intro": 3},
+    "BGM_STG1029": {"intro": 4, "lap1": 0, "lap1_intro": 1, "final_lap": 2, "final_lap_intro": 3},
+    "BGM_STG1001": {"intro": 4, "lap1": 0, "lap1_intro": 1, "final_lap": 2, "final_lap_intro": 3},
+    "BGM_STG1033": {"intro": 4, "lap1": 0, "lap1_intro": 1, "final_lap": 2, "final_lap_intro": 3},
+    "BGM_STG1034": {"intro": 4, "lap1": 0, "lap1_intro": 1, "final_lap": 2, "final_lap_intro": 3},
+    "BGM_STG1027": {"intro": 4, "lap1": 0, "lap1_intro": 1, "final_lap": 2, "final_lap_intro": 3},
+    "BGM_STG1028": {"intro": 4, "lap1": 0, "lap1_intro": 1, "final_lap": 2, "final_lap_intro": 3},
+    "BGM_STG1037": {"intro": 4, "lap1": 0, "lap1_intro": 1, "final_lap": 2, "final_lap_intro": 3},
+    "BGM_STG1023": {"intro": 4, "lap1": 0, "lap1_intro": 1, "final_lap": 2, "final_lap_intro": 3},
+    # Mystic Jungle, Kronos Island
+    "BGM_STG1025": {"intro": 0, "lap1": 1, "lap1_intro": 2, "final_lap": 3, "final_lap_intro": 4},
+    "BGM_STG1035": {"intro": 0, "lap1": 1, "lap1_intro": 2, "final_lap": 3, "final_lap_intro": 4},
+    # Colorful Mall
+    "BGM_STG1030": {"lap1": 0, "lap1_intro": 1, "intro": 2, "final_lap": 3, "final_lap_intro": None},
+    # Sand Road, Market Street, Chao Park, Radical Highway, Egg Expo, Apotos
+    "BGM_STG1003": {"lap1": 0, "lap1_intro": 1, "intro": 2, "final_lap": 3, "final_lap_intro": 4},
+    "BGM_STG1005": {"lap1": 0, "lap1_intro": 1, "intro": 2, "final_lap": 3, "final_lap_intro": 4},
+    "BGM_STG1020": {"lap1": 0, "lap1_intro": 1, "intro": 2, "final_lap": 3, "final_lap_intro": 4},
+    "BGM_STG1021": {"lap1": 0, "lap1_intro": 1, "intro": 2, "final_lap": 3, "final_lap_intro": 4},
+    "BGM_STG1031": {"lap1": 0, "lap1_intro": 1, "intro": 2, "final_lap": 3, "final_lap_intro": 4},
+    "BGM_STG1032": {"lap1": 0, "lap1_intro": 1, "intro": 2, "final_lap": 3, "final_lap_intro": 4},
+    # Golden Temple (Crossworlds)
+    "BGM_STG2004": {"lap1": 0, "lap1_intro": 1, "final_lap": 2, "final_lap_intro": None, "intro": None},
+    # Sky Road, Kraken Bay, Holoska, White Cave
+    "BGM_STG2001": {"lap1": 0, "lap1_intro": 1, "final_lap": 3, "final_lap_intro": 4, "intro": None},
+    "BGM_STG2003": {"lap1": 0, "lap1_intro": 1, "final_lap": 2, "final_lap_intro": 3, "intro": None},
+    "BGM_STG2011": {"lap1": 0, "lap1_intro": 1, "final_lap": 2, "final_lap_intro": 3, "intro": None},
+    "BGM_STG2016": {"lap1": 0, "lap1_intro": 1, "final_lap": 2, "final_lap_intro": 3, "intro": None},
 }
 
 # --- Jukebox Image Mapping ---
@@ -1267,6 +1305,9 @@ class ModBuilderGUI(QMainWindow):
             self.special_track_vars[hca_name] = editor_widget
             self.all_track_editors.append(editor_widget)
             self.special_track_frame.layout().addWidget(editor_widget)
+            
+            file_ext = "adx" if acb_stem == "SE_COURSE" else "hca"
+            editor_widget.set_track_info(label, f"{hca_name}.{file_ext}")
 
     def _filter_special_lines(self, text):
         """Hides/shows voice line widgets based on the search text."""
@@ -1645,6 +1686,39 @@ class ModBuilderGUI(QMainWindow):
         if auto_unpack and self._acb_file:
             QTimer.singleShot(100, self.unpack_acb)
 
+    def refresh_track_labels(self):
+        """Updates track editor labels with their target HCA filenames."""
+        if not self._acb_file or not self.original_files:
+            return
+
+        acb_stem = Path(self._acb_file).stem
+        is_crossworlds = acb_stem.startswith("BGM_STG2")
+
+        if acb_stem in STAGE_STRUCTURES:
+            struct = STAGE_STRUCTURES[acb_stem]
+            if struct["intro"] is not None and struct["intro"] < len(self.original_files):
+                self.intro_track_vars.set_track_info("Intro Music", self.original_files[struct["intro"]])
+            if struct["lap1"] is not None and struct["lap1"] < len(self.original_files):
+                self.lap1_track_vars.set_track_info("Lap 1 Music", self.original_files[struct["lap1"]])
+            if struct["final_lap"] is not None and struct["final_lap"] < len(self.original_files):
+                self.final_lap_track_vars.set_track_info("Final Lap Music", self.original_files[struct["final_lap"]])
+        else:
+            # Default logic
+            if len(self.original_files) > 0: self.lap1_track_vars.set_track_info("Lap 1 Music", self.original_files[0])
+            if len(self.original_files) > 2: self.final_lap_track_vars.set_track_info("Final Lap Music", self.original_files[2])
+            if not is_crossworlds and len(self.original_files) > 4:
+                self.intro_track_vars.set_track_info("Intro Music", self.original_files[4])
+
+        # Additional tracks (Transitions, Announcement)
+        if acb_stem in ADDITIONAL_TRACK_INDICES:
+            ann_idx, trans_idx, trans_short_idx = ADDITIONAL_TRACK_INDICES[acb_stem]
+            if ann_idx is not None and ann_idx < len(self.original_files):
+                self.announce_track_vars.set_track_info("Final Lap Announcement", self.original_files[ann_idx])
+            if trans_idx is not None and trans_idx < len(self.original_files):
+                self.transition_track_vars.set_track_info("Transition Music (Normal)", self.original_files[trans_idx])
+            if trans_short_idx is not None and trans_short_idx < len(self.original_files):
+                self.transition_short_track_vars.set_track_info("Transition Music (Short)", self.original_files[trans_short_idx])
+
     def locate_acb_file(self):
         """Handles the 'Locate File...' button click in the editor screen."""
         acb_filename_stem = Path(self._acb_file).stem if self._acb_file else "game"
@@ -1711,6 +1785,7 @@ class ModBuilderGUI(QMainWindow):
         self.repack_button.setEnabled(True)
         self.pak_button.setEnabled(True)
         self.populate_orig_listbox()
+        self.refresh_track_labels()
 
     def sanitize_wav(self, input_path_str):
         """
@@ -1966,25 +2041,7 @@ class ModBuilderGUI(QMainWindow):
         is_special_acb_for_onetoone = acb_stem.startswith("VOICE_") or acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA", "SE_EXTND15_CHARA"] or acb_stem == "BGM" or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_COURSE"
         is_crossworlds = acb_stem.startswith("BGM_STG2")
 
-        # --- Define Special Track Structures ---
-        special_structures = {
-            # Dodonpa Factory
-            "BGM_STG1026": {"lap1": 0, "lap1_intro": 1, "final_lap": 5, "final_lap_intro": None, "intro": 3},
-            # Mystic Jungle, Kronos Island
-            "BGM_STG1025": {"intro": 0, "lap1": 1, "lap1_intro": 2, "final_lap": 3, "final_lap_intro": 4},
-            "BGM_STG1035": {"intro": 0, "lap1": 1, "lap1_intro": 2, "final_lap": 3, "final_lap_intro": 4},
-            # Colorful Mall
-            "BGM_STG1030": {"lap1": 0, "lap1_intro": 1, "intro": 2, "final_lap": 3, "final_lap_intro": None},
-            # Sand Road, Market Street, Chao Park, Radical Highway, Egg Expo, Apotos
-            "BGM_STG1003": {"lap1": 0, "lap1_intro": 1, "intro": 2, "final_lap": 3, "final_lap_intro": 4},
-            "BGM_STG1005": {"lap1": 0, "lap1_intro": 1, "intro": 2, "final_lap": 3, "final_lap_intro": 4},
-            "BGM_STG1020": {"lap1": 0, "lap1_intro": 1, "intro": 2, "final_lap": 3, "final_lap_intro": 4},
-            "BGM_STG1021": {"lap1": 0, "lap1_intro": 1, "intro": 2, "final_lap": 3, "final_lap_intro": 4},
-            "BGM_STG1031": {"lap1": 0, "lap1_intro": 1, "intro": 2, "final_lap": 3, "final_lap_intro": 4},
-            "BGM_STG1032": {"lap1": 0, "lap1_intro": 1, "intro": 2, "final_lap": 3, "final_lap_intro": 4},
-            # Golden Temple (Crossworlds)
-            "BGM_STG2004": {"lap1": 0, "lap1_intro": 1, "final_lap": 2, "final_lap_intro": None, "intro": None},
-        }
+        # Structures moved to STAGE_STRUCTURES module-level variable
 
         # Build the replacement map based on converted files
         if is_special_acb_for_onetoone: # For Menu, Voice, and Spongebob (one-to-one mapping)
@@ -2051,9 +2108,9 @@ class ModBuilderGUI(QMainWindow):
                         if (OUTPUT_DIR / f"{main}.hca").exists():
                             replacement_map[f"{short}.hca"] = f"{main}.hca"
 
-        elif acb_stem in special_structures:
+        elif acb_stem in STAGE_STRUCTURES:
             print(f"Applying special structure for {acb_stem}...")
-            structure = special_structures[acb_stem] # This structure contains either indices or hca_filenames
+            structure = STAGE_STRUCTURES[acb_stem] # This structure contains either indices or hca_filenames
             
             if (OUTPUT_DIR / "lap1.hca").exists():
                 if structure["lap1"] is not None: replacement_map[self.original_files[structure["lap1"]]] = "lap1.hca"

@@ -221,6 +221,14 @@ class TrackEditorWidget(QFrame):
     cancel_autoloop_requested = Signal(object) # Signal with self
     apply_to_all_requested = Signal(object, str) # Signal with self and mode ('file', 'gain', 'all')
 
+    def set_track_info(self, label_text, hca_name=None):
+        """Updates the label text and optionally displays the HCA filename."""
+        self.original_label_text = label_text
+        title_html = f"<b>{label_text}</b>"
+        if hca_name:
+            title_html += f' <span style="color: grey; font-size: 10pt;">({hca_name})</span>'
+        self.title_label.setText(title_html)
+
     def __init__(self, label_text, show_loop_options=True, parent=None):
         super().__init__(parent)
         self.setFrameShape(QFrame.Shape.StyledPanel)
@@ -240,6 +248,7 @@ class TrackEditorWidget(QFrame):
         self.playback_mode = None # 'normal' or 'loop'
         self._manual_stop = False
         self.loop_timer = None
+        self.file_paths = []  # List of file paths for multiple files (for randomizer)
 
         # --- Audio Playback ---
         self.player = None
@@ -334,8 +343,9 @@ class TrackEditorWidget(QFrame):
                 else: super().dragEnterEvent(event)
             def dropEvent(self, event):
                 if event.mimeData().hasUrls():
-                    url = event.mimeData().urls()[0]
-                    self.setText(url.toLocalFile())
+                    # Handle multiple files
+                    files = [url.toLocalFile() for url in event.mimeData().urls()]
+                    self.setText(" | ".join(files))
                     event.acceptProposedAction()
                 else: super().dropEvent(event)
 
@@ -529,9 +539,10 @@ class TrackEditorWidget(QFrame):
             self.loop_end_edit.setEnabled(checked)
 
     def _browse_for_file(self):
-        filepath, _ = QFileDialog.getOpenFileName(self, "Select Audio File", "", "Audio Files (*.wav *.mp3 *.flac *.ogg *.m4a);;All files (*.*)")
-        if filepath:
-            self.path_edit.setText(filepath)
+        filepaths, _ = QFileDialog.getOpenFileNames(self, "Select Audio File(s)", "", "Audio Files (*.wav *.mp3 *.flac *.ogg *.m4a);;All files (*.*)")
+        if filepaths:
+            # Join with a separator. The pipe is a good choice as it's invalid in filenames on Windows/Linux.
+            self.path_edit.setText(" | ".join(filepaths))
 
     def _try_load_loop_points(self, filepath):
         """Attempts to read loop points from the WAV 'smpl' chunk."""
@@ -623,10 +634,15 @@ class TrackEditorWidget(QFrame):
             return 0
 
     def _update_status(self):
-        filepath = self.path_edit.text()
-        if filepath:
-            filename = Path(filepath).name
-            self.status_label.setText(f"<b>{filename}</b>")
+        filepath_text = self.path_edit.text()
+        files = [f.strip() for f in filepath_text.split('|') if f.strip()]
+
+        if files:
+            if len(files) == 1:
+                filename = Path(files[0]).name
+                self.status_label.setText(f"<b>{filename}</b>")
+            else:
+                self.status_label.setText(f"<b>{len(files)} files selected (Random)</b>")
             self.header_frame.setProperty("hasFile", True)
         else:
             self.status_label.setText("<i>No file selected</i>")
@@ -640,14 +656,21 @@ class TrackEditorWidget(QFrame):
         # Re-polish to apply style changes
         self.header_frame.style().unpolish(self.header_frame)
         self.header_frame.style().polish(self.header_frame)
+        
+        # Update loop points and sample rate for the first file
+        if self.file_paths:
+            self._try_load_loop_points(self.file_paths[0])
+            self._get_sample_rate(self.file_paths[0])
 
         # Enable/disable play button
         if MULTIMEDIA_AVAILABLE:
-            has_text = bool(filepath)
+            has_files = bool(files)
             is_audio = False
-            if has_text:
+            if has_files:
                 try:
-                    is_audio = Path(filepath).exists() and Path(filepath).suffix.lower() in ['.wav', '.mp3', '.flac', '.ogg', '.m4a', '.brstm']
+                    # Check the first file for validity for UI purposes
+                    first_file = files[0]
+                    is_audio = Path(first_file).exists() and Path(first_file).suffix.lower() in ['.wav', '.mp3', '.flac', '.ogg', '.m4a', '.brstm']
                 except Exception:
                     is_audio = False # Handle invalid path characters during typing
 
@@ -658,24 +681,29 @@ class TrackEditorWidget(QFrame):
             if self.loop_checkbox:
                 self.loop_preview_button.setEnabled(is_audio)
 
-            if not has_text:
+            if not has_files:
                 self.stop_playback() # Stop playing if text is cleared
 
         # Auto-detect loop points and get sample rate if it's a new valid file
-        if filepath and Path(filepath).exists() and filepath != self._last_filepath:
-            self._last_filepath = filepath
+        first_filepath = files[0] if files else ""
+        if first_filepath and Path(first_filepath).exists() and first_filepath != self._last_filepath:
+            self._last_filepath = first_filepath
             
             # Get sample rate for loop conversion
-            self._sample_rate = self._get_sample_rate(filepath)
+            self._sample_rate = self._get_sample_rate(first_filepath)
 
-            if self.loop_checkbox and Path(filepath).suffix.lower() == '.wav':
-                self._try_load_loop_points(filepath)
-        elif not filepath:
+            if self.loop_checkbox and Path(first_filepath).suffix.lower() == '.wav':
+                self._try_load_loop_points(first_filepath)
+        elif not first_filepath:
             self._last_filepath = None
 
     def emit_autoloop_request(self):
         """Emits the autoloop_requested signal with self and the current file path."""
-        self.autoloop_requested.emit(self, self.path_edit.text())
+        # Use the first file for autoloop
+        filepath_text = self.path_edit.text()
+        files = [f.strip() for f in filepath_text.split('|') if f.strip()]
+        if files:
+            self.autoloop_requested.emit(self, files[0])
 
     def on_autoloop_started(self):
         """Called when the auto-loop process begins."""
@@ -727,10 +755,12 @@ class TrackEditorWidget(QFrame):
             self.stop_playback()
         else:
             self.play_requested.emit(self)
-            filepath = self.path_edit.text()
-            if filepath and Path(filepath).exists():
+            # Use the first file for playback
+            filepath_text = self.path_edit.text()
+            files = [f.strip() for f in filepath_text.split('|') if f.strip()]
+            if files and Path(files[0]).exists():
                 self.playback_mode = 'normal'
-                self.player.setSource(QUrl.fromLocalFile(filepath))
+                self.player.setSource(QUrl.fromLocalFile(files[0]))
                 self.player.play()
 
     def toggle_loop_preview(self):
@@ -752,8 +782,10 @@ class TrackEditorWidget(QFrame):
                 return
 
             self.play_requested.emit(self)
-            filepath = self.path_edit.text()
-            if filepath and Path(filepath).exists():
+            # Use the first file for playback
+            filepath_text = self.path_edit.text()
+            files = [f.strip() for f in filepath_text.split('|') if f.strip()]
+            if files and Path(files[0]).exists():
                 self.playback_mode = 'loop'
                 self._manual_stop = False
                 
@@ -767,7 +799,7 @@ class TrackEditorWidget(QFrame):
                 except (ValueError, ZeroDivisionError):
                     pass
 
-                self.player.setSource(QUrl.fromLocalFile(filepath))
+                self.player.setSource(QUrl.fromLocalFile(files[0]))
                 self.player.play()
                 self.loop_timer.start()
 
@@ -877,7 +909,11 @@ class TrackEditorWidget(QFrame):
 
     def emit_normalize_request(self):
         """Emits the normalize_requested signal with the current file path."""
-        self.normalize_requested.emit(self.path_edit.text())
+        # Use the first file for normalization
+        filepath_text = self.path_edit.text()
+        files = [f.strip() for f in filepath_text.split('|') if f.strip()]
+        if files:
+            self.normalize_requested.emit(files[0])
 
 class JukeboxTrackEditorWidget(TrackEditorWidget):
     """A specialized TrackEditorWidget for Jukebox songs that includes an image."""
