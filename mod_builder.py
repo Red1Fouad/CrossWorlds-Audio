@@ -60,6 +60,7 @@ VOICE_SFX_REF_PATH = SAMPLES_DIR / "voice.wav"
 APP_VERSION = "1.7"
 SESSION_FILE = Path("session.json")
 GITHUB_REPO = "Red1Fouad/CrossWorlds-Audio"
+GITHUB_TOKEN = None  # Set this if you hit rate limits: "ghp_xxxx"
 
 # --- Track Indices Mapping ---
 # Format: "BGM_STGxxxx": (announce_idx, trans_idx, trans_short_idx)
@@ -151,6 +152,7 @@ JUKEBOX_IMAGE_MAP = {
     "BGM_EXTND23": "UI_MusicJacket_Extnd23_01",
     "BGM_EXTND26": "UI_MusicJacket_Extnd26_01",
     "BGM_EXTND27": "UI_MusicJacket_Extnd27_01",
+    "BGM_EXTND09": "WilyCastle",
     "BGM_BONUS01": "UI_MusicJacket_04011",
     "BGM_BONUS02": "UI_MusicJacket_05002",
 }
@@ -462,7 +464,9 @@ class ModBuilderGUI(QMainWindow):
             "SE_EXTND05_CHARA": "spongebob",
             "SE_EXTND06_CHARA": "pacman",
             "SE_EXTND14_CHARA": "aiai",
-            "SE_WER_CHARA": "werehog"
+            "SE_WER_CHARA": "werehog",
+            "SE_EXTND09_CHARA": "megaman",
+            "BGM_EXTND09": "WilyCastle"
         }
         
         search_filename = filename_map.get(acb_stem, acb_stem)
@@ -550,7 +554,7 @@ class ModBuilderGUI(QMainWindow):
                 # DLC Stages Tab Logic
                 if prefix == "BGM_EXTND":
                     # Only allow specific DLC stages and the Crossover GP
-                    if acb_stem not in ["BGM_EXTND04", "BGM_EXTND05", "BGM_EXTND06"] and acb_stem != "BGM_GP_09_FINAL_EXTND04_05_06":
+                    if acb_stem not in ["BGM_EXTND04", "BGM_EXTND05", "BGM_EXTND06", "BGM_EXTND09"] and acb_stem != "BGM_GP_09_FINAL_EXTND04_05_06":
                         continue
                 elif acb_stem == "BGM_GP_09_FINAL_EXTND04_05_06" and prefix != "BGM_EXTND":
                     continue
@@ -1150,17 +1154,23 @@ class ModBuilderGUI(QMainWindow):
         """The actual update check logic that runs in a thread."""
         from urllib import request
         api_url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+        headers = {"Accept": "application/vnd.github.v3+json"}
+        if GITHUB_TOKEN:
+            headers["Authorization"] = f"token {GITHUB_TOKEN}"
         try:
-            with request.urlopen(api_url, timeout=10) as response: # 10-second timeout
+            req = request.Request(api_url, headers=headers)
+            with request.urlopen(req, timeout=10) as response:
                 if response.status == 200:
                     data = json.loads(response.read().decode())
                     latest_version_tag = data.get("tag_name", "").lstrip('v')
                     
-                    # Simple version comparison
-                    if latest_version_tag and latest_version_tag > APP_VERSION:
+                    def parse_version(v):
+                        parts = v.split('.')
+                        return tuple(int(p) for p in parts if p.isdigit())
+                    
+                    if latest_version_tag and parse_version(latest_version_tag) > parse_version(APP_VERSION):
                         assets = data.get("assets", [])
                         download_url = None
-                        # Find the correct .7z file
                         for asset in assets:
                             if asset.get("name") == f"CrossWorlds-Music-Editor{latest_version_tag}.7z":
                                 download_url = asset.get("browser_download_url")
@@ -1169,16 +1179,78 @@ class ModBuilderGUI(QMainWindow):
                             return {"new_version": latest_version_tag, "url": download_url}
         except Exception as e:
             print(f"Update check failed: {e}")
-        return None # No update or an error occurred
+        return None
+
+    def _download_and_install_update(self, download_url, new_version):
+        """Launches the updater which handles downloading."""
+        self.update_status_bar.emit(f"Starting update to v{new_version}...", 0)
+        
+        if getattr(sys, 'frozen', False):
+            app_dir = Path(sys.executable).parent
+            updater_exe = app_dir / "updater.exe"
+            if updater_exe.exists():
+                subprocess.Popen([str(updater_exe), download_url, new_version], 
+                           cwd=str(app_dir))
+                self.close()
+                QTimer.singleShot(100, QApplication.instance().quit)
+            else:
+                QMessageBox.warning(self, "Update Error", 
+                    "Could not find updater. Please download manually.")
+        else:
+            subprocess.Popen([sys.executable, "updater.py", download_url, new_version],
+                           cwd=Path(__file__).parent.resolve().as_posix())
+    
+    def _download_update_file(self, download_url, new_version):
+        """Downloads the update archive."""
+        from urllib import request
+        if getattr(sys, 'frozen', False):
+            app_dir = Path(sys.executable).parent
+        else:
+            app_dir = Path(__file__).parent.resolve()
+        
+        save_path = app_dir / f"CrossWorlds-Music-Editor{new_version}.7z"
+        
+        req = request.Request(download_url, headers={"Accept": "application/octet-stream"})
+        with request.urlopen(req, timeout=120) as response:
+            total = int(response.headers.get('Content-Length', 0))
+            downloaded = 0
+            with open(save_path, 'wb') as f:
+                while True:
+                    chunk = response.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+                    downloaded += len(chunk)
+        
+        return str(save_path)
+    
+    def _launch_updater(self, archive_path):
+        """Launches the updater UI with the downloaded archive."""
+        self.update_status_bar.emit("Starting updater...", 0)
+        
+        if getattr(sys, 'frozen', False):
+            app_dir = Path(sys.executable).parent
+            updater_exe = app_dir / "updater.exe"
+            if updater_exe.exists():
+                subprocess.Popen([str(updater_exe), archive_path], 
+                           cwd=str(app_dir))
+                self.close()
+                QTimer.singleShot(100, QApplication.instance().quit)
+            else:
+                QMessageBox.warning(self, "Update Error", 
+                    "Could not find updater. Please download manually.")
+        else:
+            subprocess.Popen([sys.executable, "updater.py", archive_path],
+                           cwd=Path(__file__).parent.resolve().as_posix())
 
     def on_update_check_complete(self, result):
-        self.update_status_bar.emit("Ready.", 2000) # Show "Ready" for 2 seconds
+        self.update_status_bar.emit("Ready.", 2000)
         if result:
             reply = QMessageBox.information(self, "Update Available",
-                                          f"A new version ({result['new_version']}) is available!\n\nWould you like to open the download page?",
+                                          f"A new version ({result['new_version']}) is available!\n\nWould you like to download and install it now?",
                                           QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
             if reply == QMessageBox.StandardButton.Yes:
-                QDesktopServices.openUrl(QUrl(result['url']))
+                self._download_and_install_update(result['url'], result['new_version'])
 
     def on_update_check_error(self, error):
         self.update_status_bar.emit("Update check failed.", 3000)
@@ -1242,7 +1314,7 @@ class ModBuilderGUI(QMainWindow):
         elif acb_stem == "SE_EXTND15_CHARA": # NiGHTS
             track_dict = data.VOICE_EXTND15_CHARA_TRACKS
             is_voice_acb = True
-        elif acb_stem in ["SE_WER_CHARA", "SE_PRIME_CHARA", "SE_EXTND04_CHARA", "SE_EXTND05_CHARA", "SE_EXTND06_CHARA", "SE_EXTND14_CHARA"]:
+        elif acb_stem in ["SE_WER_CHARA", "SE_PRIME_CHARA", "SE_EXTND04_CHARA", "SE_EXTND05_CHARA", "SE_EXTND06_CHARA", "SE_EXTND09_CHARA", "SE_EXTND14_CHARA"]:
             track_dict = data.SPECIAL_TRACK_MAP[acb_stem]
             is_voice_acb = True
             print(f"[DEBUG] matched SPECIAL_TRACK_MAP key: {acb_stem!r} -> len={len(track_dict) if track_dict else 0}")
@@ -1274,17 +1346,28 @@ class ModBuilderGUI(QMainWindow):
             return
 
         show_loops = not is_voice_acb # No loops for voice lines
+        unified_keys = data.UNIFIED_DLC_TRACKS.get(acb_stem, [])
         for label, hca_name in track_dict.items():
             label = label.replace("(Final Lap)", ": Final Lap")
             can_loop = show_loops
+            
+            # Handle unified tracks (list of HCAs, use first as primary)
+            if isinstance(hca_name, list):
+                primary_hca = hca_name[0]
+                display_hca = hca_name
+            else:
+                primary_hca = hca_name
+                display_hca = hca_name
+            
             if acb_stem == "BGM":
                 # Check if the track is one of the newly added ones
-                if hca_name in BGM_TRACKS.values():
-                    can_loop = hca_name in BGM_LOOPABLE_TRACKS
+                if primary_hca in BGM_TRACKS.values():
+                    can_loop = primary_hca in BGM_LOOPABLE_TRACKS
                 else: # Otherwise, it's an original menu track, which should be loopable
                     can_loop = True
             elif acb_stem in data.NON_LOOPABLE_SPECIAL_TRACKS:
-                if hca_name in data.NON_LOOPABLE_SPECIAL_TRACKS.get(acb_stem, []):
+                check_list = display_hca if isinstance(display_hca, list) else [display_hca]
+                if any(h in data.NON_LOOPABLE_SPECIAL_TRACKS.get(acb_stem, []) for h in check_list):
                     can_loop = False
             
             if acb_stem.startswith("BGM_JBM"):
@@ -1302,12 +1385,19 @@ class ModBuilderGUI(QMainWindow):
             editor_widget.cancel_autoloop_requested.connect(self.on_cancel_autoloop)
             editor_widget.normalize_requested.connect(lambda path, ew=editor_widget, track_type='sfx' if acb_stem.startswith("SE_") else 'voice': self._update_path_after_normalize(ew, path, track_type))
             editor_widget.apply_to_all_requested.connect(self.on_apply_to_all_requested)
-            self.special_track_vars[hca_name] = editor_widget
+            
+            # Store all HCAs for unified tracks, or just the single HCA
+            track_key = primary_hca
+            if isinstance(display_hca, list):
+                self.special_track_vars[track_key] = (editor_widget, display_hca)
+            else:
+                self.special_track_vars[track_key] = editor_widget
+            
             self.all_track_editors.append(editor_widget)
             self.special_track_frame.layout().addWidget(editor_widget)
             
             file_ext = "adx" if acb_stem == "SE_COURSE" else "hca"
-            editor_widget.set_track_info(label, f"{hca_name}.{file_ext}")
+            editor_widget.set_track_info(label, f"{primary_hca}.{file_ext}")
 
     def _filter_special_lines(self, text):
         """Hides/shows voice line widgets based on the search text."""
@@ -1650,9 +1740,11 @@ class ModBuilderGUI(QMainWindow):
 
         # Clear special track vars, they will be repopulated
         for var_dict in list(self.special_track_vars.values()):
-            var_dict.path_edit.setText('')
-            if var_dict.loop_checkbox:
-                var_dict.loop_checkbox.setChecked(False)
+            # Handle unified tracks (tuple) vs regular tracks (widget)
+            widget = var_dict[0] if isinstance(var_dict, tuple) else var_dict
+            widget.path_edit.setText('')
+            if widget.loop_checkbox:
+                widget.loop_checkbox.setChecked(False)
 
         self.repack_button.setEnabled(False)
         self.pak_button.setEnabled(False)
@@ -1661,7 +1753,7 @@ class ModBuilderGUI(QMainWindow):
         acb_path = Path(filepath)
         acb_stem = acb_path.stem
 
-        if acb_stem.startswith("VOICE_") or acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA", "SE_EXTND15_CHARA"] or acb_stem == "BGM" or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_COURSE":
+        if acb_stem.startswith("VOICE_") or acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA", "SE_EXTND15_CHARA", "SE_EXTND09_CHARA"] or acb_stem == "BGM" or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_COURSE":
             self.special_track_frame.setVisible(True)
             self._populate_special_track_frame(acb_stem)
         else:
@@ -1742,7 +1834,7 @@ class ModBuilderGUI(QMainWindow):
         awb_path = acb_path.with_suffix(".awb")
         if not awb_path.exists():
             stem = acb_path.stem
-            if stem.startswith("BGM") or stem.startswith("VOICE") or stem.startswith("SE_"):
+            if stem.startswith("BGM") or stem.startswith("VOICE"):
                 reply = QMessageBox.warning(self, "Missing AWB File", 
                     f"The file '{awb_path.name}' was not found in the same folder as the ACB file.\n\n"
                     "Most audio files in this game require a paired .awb file to be unpacked correctly.\n"
@@ -1843,14 +1935,23 @@ class ModBuilderGUI(QMainWindow):
         # --- Prepare list of conversions to run ---
         acb_stem = acb_path.stem
         tasks = [] # hca_name, path, is_looping, start, end, gain_db
-        if acb_stem.startswith("VOICE_") or acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA", "SE_EXTND15_CHARA"] or acb_stem == "BGM" or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_COURSE":
+        if acb_stem.startswith("VOICE_") or acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA", "SE_EXTND15_CHARA", "SE_EXTND09_CHARA"] or acb_stem == "BGM" or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_COURSE":
             for hca_name, var_dict in self.special_track_vars.items():
-                if var_dict.path_edit.text():
-                    is_looping = var_dict.loop_checkbox and var_dict.loop_checkbox.isChecked()
-                    start_samp, end_samp = var_dict.get_loop_points_samples()
-                    gain_db = var_dict.gain_spinbox.value()
-
-                    tasks.append((hca_name, var_dict.path_edit.text(), is_looping, str(start_samp), str(end_samp), gain_db))
+                # Handle unified tracks (tuple) vs regular tracks (widget)
+                if isinstance(var_dict, tuple):
+                    widget, hca_list = var_dict
+                else:
+                    widget = var_dict
+                    hca_list = [hca_name]
+                
+                if widget.path_edit.text():
+                    is_looping = widget.loop_checkbox and widget.loop_checkbox.isChecked()
+                    start_samp, end_samp = widget.get_loop_points_samples()
+                    gain_db = widget.gain_spinbox.value()
+                    
+                    # Add task for each HCA in the unified track list
+                    for single_hca in hca_list:
+                        tasks.append((single_hca, widget.path_edit.text(), is_looping, str(start_samp), str(end_samp), gain_db))
         else: # Stage music
             for name, editor in [("intro", self.intro_track_vars), ("lap1", self.lap1_track_vars), ("final_lap", self.final_lap_track_vars), ("transition", self.transition_track_vars), ("transition_short", self.transition_short_track_vars), ("announce", self.announce_track_vars)]:
                 if editor.path_edit.text():
@@ -2038,7 +2139,7 @@ class ModBuilderGUI(QMainWindow):
         QApplication.processEvents()
 
         acb_stem = Path(self._acb_file).stem
-        is_special_acb_for_onetoone = acb_stem.startswith("VOICE_") or acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA", "SE_EXTND15_CHARA"] or acb_stem == "BGM" or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_COURSE"
+        is_special_acb_for_onetoone = acb_stem.startswith("VOICE_") or acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA", "SE_EXTND15_CHARA", "SE_EXTND09_CHARA"] or acb_stem == "BGM" or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_COURSE"
         is_crossworlds = acb_stem.startswith("BGM_STG2")
 
         # Structures moved to STAGE_STRUCTURES module-level variable
@@ -2046,11 +2147,18 @@ class ModBuilderGUI(QMainWindow):
         # Build the replacement map based on converted files
         if is_special_acb_for_onetoone: # For Menu, Voice, and Spongebob (one-to-one mapping)
             for hca_name, var_dict in self.special_track_vars.items():
+                # Handle unified tracks (tuple) vs regular tracks (widget)
+                if isinstance(var_dict, tuple):
+                    _, hca_list = var_dict
+                else:
+                    hca_list = [hca_name]
+                
                 # SE_COURSE uses .adx, others use .hca
                 file_ext = "adx" if acb_stem == "SE_COURSE" else "hca"
-                converted_file = OUTPUT_DIR / f"{hca_name}.{file_ext}"
-                if converted_file.exists():
-                    replacement_map[f"{hca_name}.{file_ext}"] = f"{hca_name}.{file_ext}"
+                for single_hca in hca_list:
+                    converted_file = OUTPUT_DIR / f"{single_hca}.{file_ext}"
+                    if converted_file.exists():
+                        replacement_map[f"{single_hca}.{file_ext}"] = f"{single_hca}.{file_ext}"
             
             # Handle implicit intros for SpongeBob
             if acb_stem == "BGM_EXTND05":

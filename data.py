@@ -25,6 +25,7 @@ BGM_DATA = {
         "EXTND04": "Minecraft World",
         "EXTND05": "BiKiNi Bottom",
         "EXTND06": "PAC-Village & Maze",
+        "EXTND09": "Wily Castle",
         "EXTND10": "Miku (Music)",
         "EXTND11": "Joker (Music)",
         "EXTND12": "Ichiban Kasuga (Music)",
@@ -78,6 +79,7 @@ BGM_DATA = {
         "EXTND04_CHARA": "Minecraft Characters",
         "EXTND05_CHARA": "SpongeBob Characters",
         "EXTND06_CHARA": "PAC-MAN Characters",
+        "EXTND09_CHARA": "Mega Man Characters",
     },
     "Jukebox": {
         "JBM0002": "Sonic Boom",
@@ -245,12 +247,30 @@ DLC_NIGHTS_TRACKS = {
     "Race Results 4": "00050_streaming",
 }
 
+DLC_WILY_TRACKS = {
+    "Intro": "00018_streaming",
+    "Lap 1": ["00014_streaming", "00015_streaming"],
+    "Final Lap": ["00016_streaming", "00017_streaming"],
+    "Character Select": "00019_streaming",
+    "Results": "00020_streaming",
+    "Wily 1 (8-bit)": ["00021_streaming", "00022_streaming"],
+    "Wily 1 (8-bit) Final Lap": ["00023_streaming", "00024_streaming"],
+    "Finish Jingle": "00025_streaming",
+    "Ceremony (Mega Man)": "00012_streaming",
+    "Ceremony (Proto Man)": "00013_streaming",
+}
+
+UNIFIED_DLC_TRACKS = {
+    "BGM_EXTND09": ["Lap 1", "Final Lap", "Wily 1 (8-bit)", "Wily 1 (8-bit) Final Lap"],
+}
+
 NON_LOOPABLE_SPECIAL_TRACKS = {
     "BGM_EXTND10": ["00082_streaming"], # Miku's Ceremony Jingle
     "BGM_EXTND11": ["00021_streaming"], # Joker's Ceremony Jingle
     "BGM_EXTND12": ["00019_streaming"], # Ichiban's Ceremony Jingle
     "BGM_EXTND06": ["00040_streaming", "00041_streaming", "00052_streaming", "00058_streaming"], # Pac-Man Ceremonies, Intro, Finish
     "BGM_EXTND15": ["00039_streaming"], # NiGHTS Ceremony
+    "BGM_EXTND09": ["00025_streaming"], # Wily Castle Finish Jingle
 }
 
 VOICE_EXTND10_CHARA_TRACKS = {
@@ -504,39 +524,73 @@ SE_EXTND05_CHARA_TRACKS = {
 }
 
 SE_EXTND06_CHARA_TRACKS = {
-    "Character Select (All)": "00001",
-    "Dash (2-5)": "00008",
-    "Dash 1 (1)": "00012",
-    "Dash 2 & 3 (1) & Lobby Stamp 3 (1)": "00011",
-    "Item Use (1) & Lobby Stamp 5 (1)": "00009",
-    "Lobby Stamp 1 (1)": "00000",
-    "Lobby Stamp 1 (2-5)": "00004",
-    "Lobby Stamp 2 (1)": "00002",
-    "Lobby Stamp 2 (2-5)": "00005",
-    "Lobby Stamp 3 (2-5)": "00006",
-    "Lobby Stamp 4 (1)": "00014",
-    "Lobby Stamp 4 (2-5)": "00010",
-    "Lobby Stamp 5 (2-5)": "00013",
-    "Lobby Stamp 6 (1)": "00003",
-    "Lobby Stamp 6 (2-5)": "00007",
-    "Stunt 1 (1)": "00015",
-    "Stunt 2 (1)": "00016",
-    "Stunt 3 (1)": "00017",
-    "Stunt 4 (1)": "00018",
-    "Stunt 5 (1)": "00019",
-    "Stunt 6 (1)": "00020",
-    "Stunt 7 (1)": "00021",
-    "Stunt 8 (1)": "00022",
-    "Stunt 9 (1)": "00023",
-    "Stunt 10 (1)": "00024",
-    "Stunt 11 (1)": "00025",
-    "Stunt 12 (1)": "00026",
-    "Stunt 1 & 7 (2-5)": "00027",
-    "Stunt 2 & 8 (2-5)": "00028",
-    "Stunt 3 & 9 (2-5)": "00029",
-    "Stunt 4 & 10 (2-5)": "00030",
-    "Stunt 5 & 11 (2-5)": "00031",
-    "Stunt 6 & 12 (2-5)": "00032",
+    "Character Select (MM&PM)": "00014",
+    "Dash 1 (MM&PM)": "00015",
+    "Dash 2 (MM&PM)": "00016",
+    "Dash 3 (MM&PM)": "00017",
+    "Dash 4 (MM&PM)": "00018",
+    "Dash 5 (MM&PM)": "00019",
+    "Dash 6 (MM&PM)": "00020",
+    "Dash 7 (MM&PM)": "00021",
+    "Item Use 1 (MM&PM)": "00022",
+    "Item Use 2 (MM&PM)": "00023",
+    "Item Use 3 (MM&PM)": "00024",
+    "Item Use 4 (MM&PM)": "00025",
+    "Item Use 5 (MM&PM)": "00026",
+    "Item Use 6 (MM&PM)": "00027",
+    "Lobby Stamp Fix 1 (MM&PM)": "00028",
+    "Lobby Stamp Fix 2 (MM&PM)": "00029",
+    "Lobby Stamp Fix 3 (MM&PM)": "00030",
+    "Lobby Stamp Fix 4 (MM&PM)": "00031",
+    "Stunt 1-8": "00000",
+    "Stunt 1-8 Alt 1": "00001",
+    "Stunt 1-8 Alt 2": "00002",
+    "Stunt 1-8 Alt 3": "00003",
+    "Stunt 1-8 Alt 4": "00004",
+    "Stunt 1-8 Alt 5": "00005",
+    "Stunt 1-8 Alt 6": "00006",
+    "Stunt 1-8 Alt 7": "00007",
+    "Stunt 1-8 Alt 8": "00008",
+    "Stunt 1-8 Alt 9": "00009",
+    "Stunt 1-8 Alt 10": "00010",
+    "Stunt 1-8 Alt 11": "00011",
+    "Stunt 1-8 Alt 12": "00012",
+    "Stunt 1-8 Alt 13": "00013",
+    "Stunt 1-8 Alt 14": "00014",
+    "Stunt 1-8 Alt 15": "00015",
+    "Stunt 1-8 Alt 16": "00016",
+    "Stunt 1-8 Alt 17": "00017",
+    "Stunt 1-8 Alt 18": "00018",
+    "Stunt 1-8 Alt 19": "00019",
+    "Stunt 1-8 Alt 20": "00020",
+    "Stunt 1-8 Alt 21": "00021",
+    "Stunt 1-8 Alt 22": "00022",
+    "Stunt 1-8 Alt 23": "00023",
+    "Stunt 1-8 Alt 24": "00024",
+    "Stunt 1-8 Alt 25": "00025",
+    "Stunt 1-8 Alt 26": "00026",
+    "Stunt 1-8 Alt 27": "00027",
+    "Stunt 1-8 Alt 28": "00028",
+    "Stunt 1-8 Alt 29": "00029",
+    "Stunt 1-8 Alt 30": "00030",
+    "Stunt 1-8 Alt 31": "00031",
+    "Stunt 1-8 Alt 32": "00032",
+}
+
+SE_EXTND09_CHARA_TRACKS = {
+    "Lobby Stamp Fix (All)": "00000",
+    "Lobby Stamp Fix (PM)": "00001",
+    "Lobby Stamp Fix (MM)": "00002",
+    "Lobby Stamp Fix 2 (All)": "00003",
+    "Lobby Stamp Fix 4 (All)": "00004",
+    "Lobby Stamp Fix 5 (All)": "00005",
+    "Lobby Stamp Fix 6 (All)": "00006",
+    "Character Select (All)": "00007",
+    "Dash (All)": "00008",
+    "Dash 2 (All)": "00009",
+    "Dash 3 (All)": "00010",
+    "Item Use (All)": "00011",
+    "Stunt (All)": "00012",
 }
 
 BGM_GP_01_FINAL_TRACKS = {
@@ -610,6 +664,7 @@ SPECIAL_TRACK_MAP = {
     "BGM": MENU_BGM_TRACKS,
     "BGM_EXTND05": DLC_SPONGEBOB_TRACKS,
     "BGM_EXTND06": DLC_PACMAN_TRACKS,
+    "BGM_EXTND09": DLC_WILY_TRACKS,
     # Guest character music packs
     "BGM_EXTND10": DLC_MIKU_TRACKS,
     "BGM_EXTND11": DLC_JOKER_TRACKS,
@@ -626,6 +681,7 @@ SPECIAL_TRACK_MAP = {
     "SE_EXTND04_CHARA": SE_EXTND04_CHARA_TRACKS,
     "SE_EXTND05_CHARA": SE_EXTND05_CHARA_TRACKS,
     "SE_EXTND06_CHARA": SE_EXTND06_CHARA_TRACKS,
+    "SE_EXTND09_CHARA": SE_EXTND09_CHARA_TRACKS,
     "BGM_JBM0002": BGM_JBM0002_TRACKS,
     "BGM_JBM0003": BGM_JBM0003_TRACKS,
     "BGM_JBM0004": BGM_JBM0004_TRACKS,

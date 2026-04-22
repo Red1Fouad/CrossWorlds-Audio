@@ -5,7 +5,7 @@ from pathlib import Path
 block_cipher = None
 
 a = Analysis(
-    ['mod_builder.py'],
+    ['mod_builder.py', 'updater.py'],
     pathex=[],
     binaries=[
         ('tools/KwasTools', 'tools/KwasTools'),
@@ -31,7 +31,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='CrossWorlds_Audio',
+    name='CrossWorlds Music Editor',
     debug=False,
     bootloader_ignore_binaries=False,
     strip=False,
@@ -52,5 +52,5 @@ coll = COLLECT(
     strip=False,
     upx=False,
     upx_compress=False,
-    name='CrossWorlds_Audio',
+    name='CrossWorlds Music Editor',
 )
