@@ -57,7 +57,7 @@ OUTPUT_DIR = Path("output")
 SAMPLES_DIR = TOOLS_DIR / "samples"
 MUSIC_REF_PATH = SAMPLES_DIR / "music.wav"
 VOICE_SFX_REF_PATH = SAMPLES_DIR / "voice.wav"
-APP_VERSION = "1.7"
+APP_VERSION = "1.8"
 SESSION_FILE = Path("session.json")
 GITHUB_REPO = "Red1Fouad/CrossWorlds-Audio"
 GITHUB_TOKEN = None  # Set this if you hit rate limits: "ghp_xxxx"
@@ -2038,12 +2038,8 @@ class ModBuilderGUI(QMainWindow):
         self.convert_button.setEnabled(False)
         self.update_status_bar.emit("Converting audio files... this may take a moment.", 0)
         
-        # Handle AI Voice conversion using original profile
+        # Use the ACB file directly - no AI profile switching
         conversion_acb_path = acb_path
-        if acb_path.stem.endswith("AI") and acb_path.stem.startswith("VOICE_"):
-            original_stem = acb_path.stem[:-2]
-            conversion_acb_path = acb_path.with_name(f"{original_stem}.acb")
-            print(f"AI Voice detected. Using conversion profile for: {original_stem}")
 
         try:
             self.run_command_threaded(self.logic.convert_audio, self.on_convert_complete, self.on_command_error, args=(conversion_acb_path, tasks), kwargs={'progress_callback': progress_cb})

@@ -76,8 +76,10 @@ class ModLogic:
 
         command_line = None
         target_label = f":option-{acb_name}"
+        
         for i, line in enumerate(lines):
-            if line.strip().lower() == target_label.lower():
+            stripped = line.strip().lower()
+            if stripped == target_label.lower():
                 if i + 1 < len(lines):
                     command_line = lines[i+1].strip()
                     break
