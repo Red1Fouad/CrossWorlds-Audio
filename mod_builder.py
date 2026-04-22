@@ -152,9 +152,29 @@ JUKEBOX_IMAGE_MAP = {
     "BGM_EXTND23": "UI_MusicJacket_Extnd23_01",
     "BGM_EXTND26": "UI_MusicJacket_Extnd26_01",
     "BGM_EXTND27": "UI_MusicJacket_Extnd27_01",
+    "BGM_EXTND34": "UI_AlbumJacket_Extnd34_03005",
     "BGM_EXTND09": "WilyCastle",
+    "BGM_EXTND13": "tangle",
+    "BGM_EXTND16": "red",
     "BGM_BONUS01": "UI_MusicJacket_04011",
     "BGM_BONUS02": "UI_MusicJacket_05002",
+    # SEGA Racing & Variety tracks
+    "BGM_JBM0034": "UI_MusicJacket_Extnd34_03006",
+    "BGM_JBM0035": "UI_MusicJacket_Extnd34_03006",
+    "BGM_JBM0036": "UI_MusicJacket_Extnd34_03007",
+    "BGM_JBM0037": "UI_MusicJacket_Extnd34_03007",
+    "BGM_JBM0038": "UI_MusicJacket_Extnd34_03008",
+    "BGM_JBM0039": "UI_MusicJacket_Extnd34_03008",
+    "BGM_JBM0040": "UI_MusicJacket_Extnd34_03009",
+    "BGM_JBM0041": "UI_MusicJacket_Extnd34_03009",
+    "BGM_JBM0042": "UI_MusicJacket_Extnd34_03010",
+    "BGM_JBM0043": "UI_MusicJacket_Extnd34_03010",
+    "BGM_JBM0044": "UI_MusicJacket_Extnd34_03011",
+    "BGM_JBM0045": "UI_MusicJacket_Extnd34_03011",
+    "BGM_JBM0046": "UI_MusicJacket_Extnd34_03012",
+    "BGM_JBM0047": "UI_MusicJacket_Extnd34_03012",
+    "BGM_JBM0048": "UI_MusicJacket_Extnd34_03013",
+    "BGM_JBM0049": "UI_MusicJacket_Extnd34_03013",
 }
 
 # --- New BGM Tracks ---
@@ -457,7 +477,7 @@ class ModBuilderGUI(QMainWindow):
         1. Tries the direct path: tools/images/<category>/<acb_stem>.png
         2. If not found, performs a keyword search within all image subdirectories.
         """
-        # Special overrides for specific characters
+# Special overrides for specific characters
         filename_map = {
             "SE_PRIME_CHARA": "sonicprime",
             "SE_EXTND04_CHARA": "minecraft",
@@ -466,7 +486,12 @@ class ModBuilderGUI(QMainWindow):
             "SE_EXTND14_CHARA": "aiai",
             "SE_WER_CHARA": "werehog",
             "SE_EXTND09_CHARA": "megaman",
-            "BGM_EXTND09": "WilyCastle"
+            "SE_EXTND13_CHARA": "tangle",
+            "SE_EXTND16_CHARA": "red",
+            "BGM_EXTND09": "WilyCastle",
+            "BGM_EXTND13": "tangle",
+"BGM_EXTND16": "red",
+    "BGM_EXTND34": "UI_AlbumJacket_Extnd34_03005",
         }
         
         search_filename = filename_map.get(acb_stem, acb_stem)
@@ -554,7 +579,7 @@ class ModBuilderGUI(QMainWindow):
                 # DLC Stages Tab Logic
                 if prefix == "BGM_EXTND":
                     # Only allow specific DLC stages and the Crossover GP
-                    if acb_stem not in ["BGM_EXTND04", "BGM_EXTND05", "BGM_EXTND06", "BGM_EXTND09"] and acb_stem != "BGM_GP_09_FINAL_EXTND04_05_06":
+                    if acb_stem not in ["BGM_EXTND04", "BGM_EXTND05", "BGM_EXTND06", "BGM_EXTND09", "BGM_EXTND13", "BGM_EXTND16"] and acb_stem != "BGM_GP_09_FINAL_EXTND04_05_06":
                         continue
                 elif acb_stem == "BGM_GP_09_FINAL_EXTND04_05_06" and prefix != "BGM_EXTND":
                     continue
@@ -868,6 +893,8 @@ class ModBuilderGUI(QMainWindow):
                 image_filename = "UI_MusicJacket_Extnd26_01"
             elif album_key == "Inugami Korone":
                 image_filename = "UI_MusicJacket_Extnd27_01"
+            elif album_key == "SEGA Racing & Variety":
+                image_filename = "UI_AlbumJacket_Extnd34_03005"
             elif album_key == "Werehog DLC":
                 image_filename = "UI_MusicJacket_04011"
             elif album_key == "Sonic Prime DLC":
@@ -903,6 +930,8 @@ class ModBuilderGUI(QMainWindow):
             image_filename = "UI_MusicJacket_Extnd26_01"
         elif album_key == "Inugami Korone":
             image_filename = "UI_MusicJacket_Extnd27_01"
+        elif album_key == "SEGA Racing & Variety":
+            image_filename = "UI_AlbumJacket_Extnd34_03005"
         elif album_key == "Werehog DLC":
             image_filename = "UI_MusicJacket_04011"
         elif album_key == "Sonic Prime DLC":
@@ -935,7 +964,7 @@ class ModBuilderGUI(QMainWindow):
     def on_card_selected(self, acb_stem, friendly_name):
         """Handles the click event from an ImageCard."""
         # New logic for misc characters
-        if acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA", "SE_EXTND15_CHARA"]:
+        if acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA", "SE_EXTND15_CHARA", "SE_EXTND13_CHARA", "SE_EXTND09_CHARA", "SE_EXTND16_CHARA"]:
             msg_box = QMessageBox(self)
             msg_box.setWindowTitle(f"Select Mod Type for {friendly_name}")
             msg_box.setText(f"Which audio type do you want to modify for {friendly_name}?")
@@ -1314,7 +1343,7 @@ class ModBuilderGUI(QMainWindow):
         elif acb_stem == "SE_EXTND15_CHARA": # NiGHTS
             track_dict = data.VOICE_EXTND15_CHARA_TRACKS
             is_voice_acb = True
-        elif acb_stem in ["SE_WER_CHARA", "SE_PRIME_CHARA", "SE_EXTND04_CHARA", "SE_EXTND05_CHARA", "SE_EXTND06_CHARA", "SE_EXTND09_CHARA", "SE_EXTND14_CHARA"]:
+        elif acb_stem in ["SE_WER_CHARA", "SE_PRIME_CHARA", "SE_EXTND04_CHARA", "SE_EXTND05_CHARA", "SE_EXTND06_CHARA", "SE_EXTND09_CHARA", "SE_EXTND13_CHARA", "SE_EXTND16_CHARA", "SE_EXTND14_CHARA"]:
             track_dict = data.SPECIAL_TRACK_MAP[acb_stem]
             is_voice_acb = True
             print(f"[DEBUG] matched SPECIAL_TRACK_MAP key: {acb_stem!r} -> len={len(track_dict) if track_dict else 0}")
@@ -1753,7 +1782,7 @@ class ModBuilderGUI(QMainWindow):
         acb_path = Path(filepath)
         acb_stem = acb_path.stem
 
-        if acb_stem.startswith("VOICE_") or acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA", "SE_EXTND15_CHARA", "SE_EXTND09_CHARA"] or acb_stem == "BGM" or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_COURSE":
+        if acb_stem.startswith("VOICE_") or acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA", "SE_EXTND15_CHARA", "SE_EXTND09_CHARA", "SE_EXTND13_CHARA", "SE_EXTND16_CHARA"] or acb_stem == "BGM" or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_COURSE":
             self.special_track_frame.setVisible(True)
             self._populate_special_track_frame(acb_stem)
         else:
@@ -1935,7 +1964,7 @@ class ModBuilderGUI(QMainWindow):
         # --- Prepare list of conversions to run ---
         acb_stem = acb_path.stem
         tasks = [] # hca_name, path, is_looping, start, end, gain_db
-        if acb_stem.startswith("VOICE_") or acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA", "SE_EXTND15_CHARA", "SE_EXTND09_CHARA"] or acb_stem == "BGM" or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_COURSE":
+        if acb_stem.startswith("VOICE_") or acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA", "SE_EXTND15_CHARA", "SE_EXTND09_CHARA", "SE_EXTND13_CHARA", "SE_EXTND16_CHARA"] or acb_stem == "BGM" or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_COURSE":
             for hca_name, var_dict in self.special_track_vars.items():
                 # Handle unified tracks (tuple) vs regular tracks (widget)
                 if isinstance(var_dict, tuple):
@@ -2095,9 +2124,14 @@ class ModBuilderGUI(QMainWindow):
         """This function now just validates the original file structure."""
         self.original_files = []
         unpacked_path = Path(self._unpacked_folder)
+        
+        # ACBs that are known to have fewer than 5 tracks
+        short_track_acbs = {"BGM_EXTND13", "BGM_EXTND16", "BGM_EXTND34", "BGM_JBM0002", "BGM_JBM0003", "BGM_JBM0004", "BGM_JBM0005"}
+        
         try:
             self.original_files = sorted([f.name for f in unpacked_path.iterdir() if f.suffix.lower() in ['.hca', '.adx']])
-            if Path(self._acb_file).stem != "BGM" and len(self.original_files) < 5:
+            acb_stem = Path(self._acb_file).stem
+            if acb_stem != "BGM" and len(self.original_files) < 5 and acb_stem not in short_track_acbs:
                 QMessageBox.warning(self, "Unexpected File Structure", 
                     f"Warning: Found {len(self.original_files)} audio files, but expected at least 5.\n\n"
                     "The automatic replacement for Intro/Lap1/Final Lap might not work correctly.")
@@ -2139,7 +2173,7 @@ class ModBuilderGUI(QMainWindow):
         QApplication.processEvents()
 
         acb_stem = Path(self._acb_file).stem
-        is_special_acb_for_onetoone = acb_stem.startswith("VOICE_") or acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA", "SE_EXTND15_CHARA", "SE_EXTND09_CHARA"] or acb_stem == "BGM" or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_COURSE"
+        is_special_acb_for_onetoone = acb_stem.startswith("VOICE_") or acb_stem in ["SE_EXTND10_CHARA", "SE_EXTND11_CHARA", "SE_EXTND12_CHARA", "SE_EXTND15_CHARA", "SE_EXTND09_CHARA", "SE_EXTND13_CHARA"] or acb_stem == "BGM" or acb_stem in data.SPECIAL_TRACK_MAP or acb_stem == "BGM_EXTND04" or acb_stem == "SE_COURSE"
         is_crossworlds = acb_stem.startswith("BGM_STG2")
 
         # Structures moved to STAGE_STRUCTURES module-level variable

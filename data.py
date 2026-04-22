@@ -80,6 +80,8 @@ BGM_DATA = {
         "EXTND05_CHARA": "SpongeBob Characters",
         "EXTND06_CHARA": "PAC-MAN Characters",
         "EXTND09_CHARA": "Mega Man Characters",
+        "EXTND13_CHARA": "Tangle & Whisper",
+        "EXTND16_CHARA": "Red",
     },
     "Jukebox": {
         "JBM0002": "Sonic Boom",
@@ -137,9 +139,26 @@ BGM_DATA = {
         "JBM0045": "Biolizard",
         "JBM0046": "Kingdom Valley Act 1",
         "JBM0047": "Mephiles",
+        "JBM0034": "MAGICAL SOUND SHOWER",
+        "JBM0035": "MAGICAL SOUND SHOWER",
+        "JBM0036": "Let's Go Away",
+        "JBM0037": "Let's Go Away",
+        "JBM0038": "Soul On Desert",
+        "JBM0039": "Soul On Desert",
+        "JBM0040": "Like THE Wind (B COURSE)",
+        "JBM0041": "Like THE Wind (B COURSE)",
+        "JBM0042": "Outride a Crisis",
+        "JBM0043": "Outride a Crisis",
+        "JBM0044": "Main Theme (Enduro Racer)",
+        "JBM0045": "Main Theme (Enduro Racer)",
+        "JBM0046": "God Only Knows",
+        "JBM0047": "God Only Knows",
+        "JBM0048": "Like The Wind [Reborn]",
+        "JBM0049": "Like The Wind [Reborn]",
         "EXTND23": "Get Higher",
         "EXTND26": "No.1",
         "EXTND27": "Inugami Precious Moments",
+        "EXTND34": "SEGA Racing & Variety",
         "BONUS01": "Werehog DLC Tracks",
         "BONUS02": "Sonic Prime DLC Tracks",
     }
@@ -262,6 +281,12 @@ DLC_WILY_TRACKS = {
 
 UNIFIED_DLC_TRACKS = {
     "BGM_EXTND09": ["Lap 1", "Final Lap", "Wily 1 (8-bit)", "Wily 1 (8-bit) Final Lap"],
+    "BGM_EXTND16": ["GO! Theme", "GO! Theme Final Lap"],
+    "BGM_EXTND34": ["MAGICAL SOUND SHOWER", "MAGICAL SOUND SHOWER Final Lap", "Let's Go Away", "Let's Go Away Final Lap", 
+                   "Soul On Desert", "Soul On Desert Final Lap", "Like THE Wind (B COURSE) - ARCADE ver.", 
+                   "Like THE Wind (B COURSE) - ARCADE ver. Final Lap", "Outride a Crisis", "Outride a Crisis Final Lap",
+                   "Main Theme (Enduro Racer)", "Main Theme (Enduro Racer) Final Lap", "God Only Knows", "God Only Knows Final Lap",
+                   "Like The Wind [Reborn]", "Like The Wind [Reborn] Final Lap"],
 }
 
 NON_LOOPABLE_SPECIAL_TRACKS = {
@@ -412,6 +437,43 @@ BGM_JBM0047_TRACKS = {"Boss Battle: Mephiles Pt-II": "00019_streaming", "Boss Ba
 BGM_EXTND23_TRACKS = {"Get Higher": "00021_streaming", "Get Higher [for Final Lap]": "00022_streaming"}
 BGM_EXTND26_TRACKS = {"No.1": "00020_streaming", "No.1 [for Final Lap]": "00022_streaming"}
 BGM_EXTND27_TRACKS = {"Inugami Precious Moments": "00010_streaming", "Inugami Precious Moments [for Final Lap]": "00011_streaming"}
+
+BGM_EXTND34_TRACKS = {
+    "MAGICAL SOUND SHOWER": ["00071_streaming", "00072_streaming"],
+    "MAGICAL SOUND SHOWER Final Lap": ["00073_streaming", "00074_streaming"],
+    "Let's Go Away": ["00075_streaming", "00076_streaming"],
+    "Let's Go Away Final Lap": ["00077_streaming", "00078_streaming"],
+    "Soul On Desert": ["00079_streaming", "00080_streaming"],
+    "Soul On Desert Final Lap": ["00082_streaming", "00083_streaming"],
+    "Like THE Wind (B COURSE) - ARCADE ver.": ["00084_streaming", "00085_streaming"],
+    "Like THE Wind (B COURSE) - ARCADE ver. Final Lap": ["00086_streaming", "00087_streaming"],
+    "Outride a Crisis": ["00088_streaming", "00089_streaming"],
+    "Outride a Crisis Final Lap": ["00090_streaming", "00091_streaming"],
+    "Main Theme (Enduro Racer)": ["00092_streaming", "00093_streaming"],
+    "Main Theme (Enduro Racer) Final Lap": ["00094_streaming", "00095_streaming"],
+    "God Only Knows": ["00096_streaming", "00097_streaming"],
+    "God Only Knows Final Lap": ["00098_streaming", "00099_streaming"],
+    "Like The Wind [Reborn]": ["000100_streaming", "000101_streaming"],
+    "Like The Wind [Reborn] Final Lap": ["000102_streaming", "000103_streaming"],
+}
+
+# SEGA Racing & Variety individual track data
+BGM_JBM0034_TRACKS = {"MAGICAL SOUND SHOWER": "00071_streaming", "MAGICAL SOUND SHOWER Final Lap": "00073_streaming"}
+BGM_JBM0035_TRACKS = {"MAGICAL SOUND SHOWER": "00072_streaming", "MAGICAL SOUND SHOWER Final Lap": "00074_streaming"}
+BGM_JBM0036_TRACKS = {"Let's Go Away": "00075_streaming", "Let's Go Away Final Lap": "00077_streaming"}
+BGM_JBM0037_TRACKS = {"Let's Go Away": "00076_streaming", "Let's Go Away Final Lap": "00078_streaming"}
+BGM_JBM0038_TRACKS = {"Soul On Desert": "00079_streaming", "Soul On Desert Final Lap": "00082_streaming"}
+BGM_JBM0039_TRACKS = {"Soul On Desert": "00080_streaming", "Soul On Desert Final Lap": "00083_streaming"}
+BGM_JBM0040_TRACKS = {"Like THE Wind (B COURSE) - ARCADE ver.": "00084_streaming", "Like THE Wind (B COURSE) - ARCADE ver. Final Lap": "00086_streaming"}
+BGM_JBM0041_TRACKS = {"Like THE Wind (B COURSE) - ARCADE ver.": "00085_streaming", "Like THE Wind (B COURSE) - ARCADE ver. Final Lap": "00087_streaming"}
+BGM_JBM0042_TRACKS = {"Outride a Crisis": "00088_streaming", "Outride a Crisis Final Lap": "00090_streaming"}
+BGM_JBM0043_TRACKS = {"Outride a Crisis": "00089_streaming", "Outride a Crisis Final Lap": "00091_streaming"}
+BGM_JBM0044_TRACKS = {"Main Theme (Enduro Racer)": "00092_streaming", "Main Theme (Enduro Racer) Final Lap": "00094_streaming"}
+BGM_JBM0045_TRACKS = {"Main Theme (Enduro Racer)": "00093_streaming", "Main Theme (Enduro Racer) Final Lap": "00095_streaming"}
+BGM_JBM0046_TRACKS = {"God Only Knows": "00096_streaming", "God Only Knows Final Lap": "00098_streaming"}
+BGM_JBM0047_TRACKS = {"God Only Knows": "00097_streaming", "God Only Knows Final Lap": "00099_streaming"}
+BGM_JBM0048_TRACKS = {"Like The Wind [Reborn]": "000100_streaming", "Like The Wind [Reborn] Final Lap": "000102_streaming"}
+BGM_JBM0049_TRACKS = {"Like The Wind [Reborn]": "000101_streaming", "Like The Wind [Reborn] Final Lap": "000103_streaming"}
 BGM_BONUS01_TRACKS = {"Werehog Battle Theme": "00023_streaming", "Werehog Battle Theme (Alt)": "00025_streaming", "The World Adventure": "00021_streaming", "Werehog: Result": "00022_streaming", "Werehog: Ceremony": "00020_streaming"}
 BGM_BONUS02_TRACKS = {"Sonic Prime: Character Select": "00004_streaming", "Sonic Prime: Result": "00005_streaming", "Sonic Prime: Ceremony (Nine)": "00001_streaming", "Sonic Prime: Ceremony (Rusty Rose)": "00002_streaming", "Sonic Prime: Ceremony (Dread)": "00003_streaming"}
 
@@ -593,6 +655,59 @@ SE_EXTND09_CHARA_TRACKS = {
     "Stunt (All)": "00012",
 }
 
+SE_EXTND13_CHARA_TRACKS = {
+    "Character Select (All)": "00000",
+    "Dash (All)": "00001",
+    "Dash 2 (All)": "00002",
+    "Dash 3 (All)": "00003",
+    "Item Use (All)": "00004",
+    "Lobby Stamp (All)": "00005",
+    "Stunt 1 (All)": "00006",
+    "Stunt 2 (All)": "00007",
+    "Stunt 3 (All)": "00008",
+    "Stunt 4 (All)": "00009",
+    "Stunt 5 (All)": "00010",
+    "Stunt 6 (All)": "00011",
+    "Stunt 7 (All)": "00012",
+    "Stunt 8 (All)": "00013",
+    "Stunt 9 (All)": "00014",
+    "Stunt 10 (All)": "00015",
+    "Stunt 11 (All)": "00016",
+    "Stunt 12 (All)": "00017",
+    "Stunt Action (All)": "00018",
+}
+
+SE_EXTND16_CHARA_TRACKS = {
+    "Character Select": "00000",
+    "Dash (2&3)": "00001",
+    "Dash 1": "00002",
+    "Item Use": "00003",
+    "Lobby Stamp Fix 1": "00004",
+    "Lobby Stamp Fix 2": "00005",
+    "Lobby Stamp Fix 3": "00006",
+    "Lobby Stamp Fix 4": "00007",
+    "Lobby Stamp Fix 5": "00008",
+    "Lobby Stamp Fix 6": "00009",
+    "Stunt 1-7 (1)": "00010",
+    "Stunt 1-7 (2)": "00011",
+    "Stunt 1-7 (3)": "00012",
+}
+
+DLC_RED_TRACKS = {
+    "Ceremony": "00019_streaming",
+    "Angry Birds Theme": "00020_streaming",
+    "Results": "00021_streaming",
+    "GO! Theme": ["00022_streaming", "00023_streaming"],
+    "GO! Theme Final Lap": ["00024_streaming", "00025_streaming"],
+}
+
+DLC_TANGLE_TRACKS = {
+    "Ceremony (Tangle)": "00000_streaming",
+    "Ceremony (Whisper)": "00001_streaming",
+    "Character Select": "00002_streaming",
+    "Results": "00003_streaming",
+}
+
 BGM_GP_01_FINAL_TRACKS = {
     "Final Lap Jingle": "00000_streaming",
     "E-Stadium": "00003_streaming",
@@ -669,6 +784,8 @@ SPECIAL_TRACK_MAP = {
     "BGM_EXTND10": DLC_MIKU_TRACKS,
     "BGM_EXTND11": DLC_JOKER_TRACKS,
     "BGM_EXTND12": DLC_ICHIBAN_TRACKS,
+    "BGM_EXTND13": DLC_TANGLE_TRACKS,
+    "BGM_EXTND16": DLC_RED_TRACKS,
     "BGM_EXTND15": DLC_NIGHTS_TRACKS,
     "SE_EXTND10_CHARA": None, # Will be populated dynamically
     "SE_EXTND11_CHARA": None, # Will be populated dynamically
@@ -682,6 +799,8 @@ SPECIAL_TRACK_MAP = {
     "SE_EXTND05_CHARA": SE_EXTND05_CHARA_TRACKS,
     "SE_EXTND06_CHARA": SE_EXTND06_CHARA_TRACKS,
     "SE_EXTND09_CHARA": SE_EXTND09_CHARA_TRACKS,
+    "SE_EXTND13_CHARA": SE_EXTND13_CHARA_TRACKS,
+    "SE_EXTND16_CHARA": SE_EXTND16_CHARA_TRACKS,
     "BGM_JBM0002": BGM_JBM0002_TRACKS,
     "BGM_JBM0003": BGM_JBM0003_TRACKS,
     "BGM_JBM0004": BGM_JBM0004_TRACKS,
@@ -737,9 +856,25 @@ SPECIAL_TRACK_MAP = {
     "BGM_JBM0045": BGM_JBM0045_TRACKS,
     "BGM_JBM0046": BGM_JBM0046_TRACKS,
     "BGM_JBM0047": BGM_JBM0047_TRACKS,
+    "BGM_JBM0034": BGM_JBM0034_TRACKS,
+    "BGM_JBM0035": BGM_JBM0035_TRACKS,
+    "BGM_JBM0036": BGM_JBM0036_TRACKS,
+    "BGM_JBM0037": BGM_JBM0037_TRACKS,
+    "BGM_JBM0038": BGM_JBM0038_TRACKS,
+    "BGM_JBM0039": BGM_JBM0039_TRACKS,
+    "BGM_JBM0040": BGM_JBM0040_TRACKS,
+    "BGM_JBM0041": BGM_JBM0041_TRACKS,
+    "BGM_JBM0042": BGM_JBM0042_TRACKS,
+    "BGM_JBM0043": BGM_JBM0043_TRACKS,
+    "BGM_JBM0044": BGM_JBM0044_TRACKS,
+    "BGM_JBM0045": BGM_JBM0045_TRACKS,
+    "BGM_JBM0046": BGM_JBM0046_TRACKS,
+    "BGM_JBM0048": BGM_JBM0048_TRACKS,
+    "BGM_JBM0049": BGM_JBM0049_TRACKS,
     "BGM_EXTND23": BGM_EXTND23_TRACKS,
     "BGM_EXTND26": BGM_EXTND26_TRACKS,
     "BGM_EXTND27": BGM_EXTND27_TRACKS,
+    "BGM_EXTND34": BGM_EXTND34_TRACKS,
     "BGM_BONUS01": BGM_BONUS01_TRACKS,
     "BGM_BONUS02": BGM_BONUS02_TRACKS,
     "BGM_GP_01_FINAL": BGM_GP_01_FINAL_TRACKS,
@@ -6466,6 +6601,12 @@ JUKEBOX_ALBUMS = {
     ],
     "Inugami Korone": [
         "BGM_EXTND27"
+    ],
+    "SEGA Racing & Variety": [
+        "BGM_JBM0034", "BGM_JBM0035", "BGM_JBM0036", "BGM_JBM0037", "BGM_JBM0038",
+        "BGM_JBM0039", "BGM_JBM0040", "BGM_JBM0041", "BGM_JBM0042", "BGM_JBM0043",
+        "BGM_JBM0044", "BGM_JBM0045", "BGM_JBM0046", "BGM_JBM0047", "BGM_JBM0048",
+        "BGM_JBM0049"
     ],
     "Werehog DLC": [
         "BGM_BONUS01"
