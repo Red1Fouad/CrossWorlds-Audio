@@ -155,6 +155,7 @@ BGM_DATA = {
         "JBM0047": "God Only Knows",
         "JBM0048": "Like The Wind [Reborn]",
         "JBM0049": "Like The Wind [Reborn]",
+        "EXTND34": "SEGA Racing & Variety",
         "EXTND23": "Get Higher",
         "EXTND26": "No.1",
         "EXTND27": "Inugami Precious Moments",
@@ -457,23 +458,23 @@ BGM_EXTND34_TRACKS = {
     "Like The Wind [Reborn] Final Lap": ["000102_streaming", "000103_streaming"],
 }
 
-# SEGA Racing & Variety unified track data (show one name in UI, use both HCAs when replacing)
-BGM_JBM0034_TRACKS = {"MAGICAL SOUND SHOWER": ["00071_streaming", "00072_streaming"], "MAGICAL SOUND SHOWER Final Lap": ["00073_streaming", "00074_streaming"]}
-BGM_JBM0035_TRACKS = {"MAGICAL SOUND SHOWER": ["00071_streaming", "00072_streaming"], "MAGICAL SOUND SHOWER Final Lap": ["00073_streaming", "00074_streaming"]}
-BGM_JBM0036_TRACKS = {"Let's Go Away": ["00075_streaming", "00076_streaming"], "Let's Go Away Final Lap": ["00077_streaming", "00078_streaming"]}
-BGM_JBM0037_TRACKS = {"Let's Go Away": ["00075_streaming", "00076_streaming"], "Let's Go Away Final Lap": ["00077_streaming", "00078_streaming"]}
-BGM_JBM0038_TRACKS = {"Soul On Desert": ["00079_streaming", "00080_streaming"], "Soul On Desert Final Lap": ["00082_streaming", "00083_streaming"]}
-BGM_JBM0039_TRACKS = {"Soul On Desert": ["00079_streaming", "00080_streaming"], "Soul On Desert Final Lap": ["00082_streaming", "00083_streaming"]}
-BGM_JBM0040_TRACKS = {"Like THE Wind (B COURSE) - ARCADE ver.": ["00084_streaming", "00085_streaming"], "Like THE Wind (B COURSE) - ARCADE ver. Final Lap": ["00086_streaming", "00087_streaming"]}
-BGM_JBM0041_TRACKS = {"Like THE Wind (B COURSE) - ARCADE ver.": ["00084_streaming", "00085_streaming"], "Like THE Wind (B COURSE) - ARCADE ver. Final Lap": ["00086_streaming", "00087_streaming"]}
-BGM_JBM0042_TRACKS = {"Outride a Crisis": ["00088_streaming", "00089_streaming"], "Outride a Crisis Final Lap": ["00090_streaming", "00091_streaming"]}
-BGM_JBM0043_TRACKS = {"Outride a Crisis": ["00088_streaming", "00089_streaming"], "Outride a Crisis Final Lap": ["00090_streaming", "00091_streaming"]}
-BGM_JBM0044_TRACKS = {"Main Theme (Enduro Racer)": ["00092_streaming", "00093_streaming"], "Main Theme (Enduro Racer) Final Lap": ["00094_streaming", "00095_streaming"]}
-BGM_JBM0045_TRACKS = {"Main Theme (Enduro Racer)": ["00092_streaming", "00093_streaming"], "Main Theme (Enduro Racer) Final Lap": ["00094_streaming", "00095_streaming"]}
-BGM_JBM0046_TRACKS = {"God Only Knows": ["00096_streaming", "00097_streaming"], "God Only Knows Final Lap": ["00098_streaming", "00099_streaming"]}
-BGM_JBM0047_TRACKS = {"God Only Knows": ["00096_streaming", "00097_streaming"], "God Only Knows Final Lap": ["00098_streaming", "00099_streaming"]}
-BGM_JBM0048_TRACKS = {"Like The Wind [Reborn]": ["000100_streaming", "000101_streaming"], "Like The Wind [Reborn] Final Lap": ["000102_streaming", "000103_streaming"]}
-BGM_JBM0049_TRACKS = {"Like The Wind [Reborn]": ["000100_streaming", "000101_streaming"], "Like The Wind [Reborn] Final Lap": ["000102_streaming", "000103_streaming"]}
+# SEGA Racing & Variety - all use BGM_EXTND34 ACB
+BGM_JBM0034_TRACKS = {"MAGICAL SOUND SHOWER": "00071_streaming", "MAGICAL SOUND SHOWER Final Lap": "00073_streaming"}
+BGM_JBM0035_TRACKS = {"MAGICAL SOUND SHOWER": "00072_streaming", "MAGICAL SOUND SHOWER Final Lap": "00074_streaming"}
+BGM_JBM0036_TRACKS = {"Let's Go Away": "00075_streaming", "Let's Go Away Final Lap": "00077_streaming"}
+BGM_JBM0037_TRACKS = {"Let's Go Away": "00076_streaming", "Let's Go Away Final Lap": "00078_streaming"}
+BGM_JBM0038_TRACKS = {"Soul On Desert": "00079_streaming", "Soul On Desert Final Lap": "00082_streaming"}
+BGM_JBM0039_TRACKS = {"Soul On Desert": "00080_streaming", "Soul On Desert Final Lap": "00083_streaming"}
+BGM_JBM0040_TRACKS = {"Like THE Wind (B COURSE) - ARCADE ver.": "00084_streaming", "Like THE Wind (B COURSE) - ARCADE ver. Final Lap": "00086_streaming"}
+BGM_JBM0041_TRACKS = {"Like THE Wind (B COURSE) - ARCADE ver.": "00085_streaming", "Like THE Wind (B COURSE) - ARCADE ver. Final Lap": "00087_streaming"}
+BGM_JBM0042_TRACKS = {"Outride a Crisis": "00088_streaming", "Outride a Crisis Final Lap": "00090_streaming"}
+BGM_JBM0043_TRACKS = {"Outride a Crisis": "00089_streaming", "Outride a Crisis Final Lap": "00091_streaming"}
+BGM_JBM0044_TRACKS = {"Main Theme (Enduro Racer)": "00092_streaming", "Main Theme (Enduro Racer) Final Lap": "00094_streaming"}
+BGM_JBM0045_TRACKS = {"Main Theme (Enduro Racer)": "00093_streaming", "Main Theme (Enduro Racer) Final Lap": "00095_streaming"}
+BGM_JBM0046_TRACKS = {"God Only Knows": "00096_streaming", "God Only Knows Final Lap": "00098_streaming"}
+BGM_JBM0047_TRACKS = {"God Only Knows": "00097_streaming", "God Only Knows Final Lap": "00099_streaming"}
+BGM_JBM0048_TRACKS = {"Like The Wind [Reborn]": "000100_streaming", "Like The Wind [Reborn] Final Lap": "000102_streaming"}
+BGM_JBM0049_TRACKS = {"Like The Wind [Reborn]": "000101_streaming", "Like The Wind [Reborn] Final Lap": "000103_streaming"}
 BGM_BONUS01_TRACKS = {"Werehog Battle Theme": "00023_streaming", "Werehog Battle Theme (Alt)": "00025_streaming", "The World Adventure": "00021_streaming", "Werehog: Result": "00022_streaming", "Werehog: Ceremony": "00020_streaming"}
 BGM_BONUS02_TRACKS = {"Sonic Prime: Character Select": "00004_streaming", "Sonic Prime: Result": "00005_streaming", "Sonic Prime: Ceremony (Nine)": "00001_streaming", "Sonic Prime: Ceremony (Rusty Rose)": "00002_streaming", "Sonic Prime: Ceremony (Dread)": "00003_streaming"}
 
@@ -6603,8 +6604,7 @@ JUKEBOX_ALBUMS = {
         "BGM_EXTND27"
     ],
     "SEGA Racing & Variety": [
-        "BGM_JBM0034", "BGM_JBM0036", "BGM_JBM0038", "BGM_JBM0040",
-        "BGM_JBM0042", "BGM_JBM0044", "BGM_JBM0046", "BGM_JBM0048"
+        "BGM_EXTND34"
     ],
     "Werehog DLC": [
         "BGM_BONUS01"

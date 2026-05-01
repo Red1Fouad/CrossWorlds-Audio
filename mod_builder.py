@@ -57,7 +57,7 @@ OUTPUT_DIR = Path("output")
 SAMPLES_DIR = TOOLS_DIR / "samples"
 MUSIC_REF_PATH = SAMPLES_DIR / "music.wav"
 VOICE_SFX_REF_PATH = SAMPLES_DIR / "voice.wav"
-APP_VERSION = "1.8"
+APP_VERSION = "1.10"
 SESSION_FILE = Path("session.json")
 GITHUB_REPO = "Red1Fouad/CrossWorlds-Audio"
 GITHUB_TOKEN = None  # Set this if you hit rate limits: "ghp_xxxx"
@@ -1684,7 +1684,10 @@ class ModBuilderGUI(QMainWindow):
         self.autoloop_threads[editor_widget] = (thread, worker)
 
     def on_autoloop_complete(self, editor_widget, loop_points):
-        if editor_widget in self.autoloop_threads: del self.autoloop_threads[editor_widget]
+        try:
+            if editor_widget in self.autoloop_threads: del self.autoloop_threads[editor_widget]
+        except RuntimeError:
+            pass
         editor_widget.on_autoloop_finished(loop_points)
         self.update_status_bar.emit("Loop point analysis complete.", 5000)
 
@@ -1695,20 +1698,29 @@ class ModBuilderGUI(QMainWindow):
             QMessageBox.warning(self, "No Loop Points Found", "Could not find any suitable loop points for this audio file.")
 
     def on_autoloop_error(self, editor_widget, error):
-        if editor_widget in self.autoloop_threads: del self.autoloop_threads[editor_widget]
+        try:
+            if editor_widget in self.autoloop_threads: del self.autoloop_threads[editor_widget]
+        except RuntimeError:
+            pass
         editor_widget.on_autoloop_finished(None) # Reset the specific widget's UI
         self.on_command_error(error)
 
     def on_cancel_autoloop(self, editor_widget):
         """Cancels the running auto-loop task for the specific widget."""
         if editor_widget in self.autoloop_threads:
-            thread, worker = self.autoloop_threads[editor_widget]
-            if thread.isRunning():
-                thread.terminate()
-                thread.wait()
-            del self.autoloop_threads[editor_widget]
-            editor_widget.on_autoloop_finished(None)
-            self.update_status_bar.emit("Auto-loop cancelled.", 2000)
+            try:
+                thread, worker = self.autoloop_threads[editor_widget]
+                # Check if the C++ object still exists before calling methods on it
+                if thread and not thread.isFinished():
+                    thread.terminate()
+                    thread.wait(1000)  # Wait up to 1 second
+            except RuntimeError:
+                # C++ object already deleted, thread is gone
+                pass
+            finally:
+                del self.autoloop_threads[editor_widget]
+                editor_widget.on_autoloop_finished(None)
+                self.update_status_bar.emit("Auto-loop cancelled.", 2000)
 
     def _prompt_for_acb_file(self, acb_filename_stem):
         """Opens a file dialog to locate an ACB file and returns the selected path or None."""

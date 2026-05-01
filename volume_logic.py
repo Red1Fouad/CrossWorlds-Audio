@@ -116,8 +116,9 @@ def normalize_audio_file(source_path_str, reference_path_str, output_path_str):
     try:
         # Pass 1: Analysis
         # We use resolve() to ensure paths are absolute and properly handled by the OS/Subprocess
+        # Added -vn to skip video/album art streams that can cause issues
         analyze_cmd = [
-            ffmpeg_path, "-y", "-i", str(source_path.resolve()),
+            ffmpeg_path, "-y", "-vn", "-i", str(source_path.resolve()),
             "-af", f"loudnorm=I={TARGET_LUFS}:TP={TARGET_TP}:LRA={TARGET_LRA}:print_format=json",
             "-f", "null", "-"
         ]
@@ -135,8 +136,10 @@ def normalize_audio_file(source_path_str, reference_path_str, output_path_str):
         stats = json.loads(json_str)
         
         # Pass 2: Normalization
+        # Use -vn to skip video streams (album art), and output to WAV to avoid MP3 encoder issues
+        output_path_wav = output_path.with_suffix('.wav')
         normalize_cmd = [
-            ffmpeg_path, "-y", "-i", str(source_path.resolve()),
+            ffmpeg_path, "-y", "-vn", "-i", str(source_path.resolve()),
             "-af", (
                 f"loudnorm=I={TARGET_LUFS}:TP={TARGET_TP}:LRA={TARGET_LRA}:"
                 f"measured_I={stats['input_i']}:"
@@ -147,7 +150,8 @@ def normalize_audio_file(source_path_str, reference_path_str, output_path_str):
                 f"linear=true"
             ),
             "-ar", "44100",
-            str(output_path.resolve())
+            "-c:a", "pcm_s16le",
+            str(output_path_wav)
         ]
         
         subprocess.run(normalize_cmd, check=True, capture_output=True, creationflags=creation_flags)
